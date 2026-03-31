@@ -1,6 +1,5 @@
-@UniLibrary.Api_HostAddress = http://localhost:5152
+@UniLibrary.Api_HostAddress = https://localhost:5152
 
-GET {{UniLibrary.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###

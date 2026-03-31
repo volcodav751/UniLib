@@ -9,9 +9,9 @@ builder.Services.AddControllers();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowBlazor", policy =>
+    options.AddPolicy("BlazorCors", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("https://localhost:7170")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -22,7 +22,9 @@ var app = builder.Build();
 // Pipeline
 app.UseHttpsRedirection();
 
-app.UseCors("AllowBlazor");
+app.UseCors("BlazorCors");
+
+app.UseAuthorization();
 
 app.MapControllers();
 

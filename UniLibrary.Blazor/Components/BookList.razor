@@ -1,0 +1,26 @@
+@inject Services.BookApiService BookApiService
+@using UniLibrary.Blazor.Models
+@inherits LayoutComponentBase
+<div>
+    @if (books != null)
+    {
+        @foreach (var book in books)
+        {
+            <div>@book.Id - @book.Author - @book.Title - @book.Year - має кількість: @book.AvailableCopies </div>
+        }
+    }
+    else
+    {
+        <div>Виникла помилка при завантаженні файлів</div>
+    }
+    
+</div>
+
+@code {
+    private List<Book>? books;
+
+    protected override async Task OnInitializedAsync()
+    {
+        books = await BookApiService.GetBooksAsync();
+    }
+}
