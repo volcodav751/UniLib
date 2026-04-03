@@ -1,0 +1,56 @@
+@page "/catalog"
+@using UniLibrary.Blazor.Models
+@inject UniLibrary.Blazor.Services.BookApiService BookApiService
+
+<div class="catalog-page">
+    <SemicircleHeader />
+
+    <div class="catalog-layout">
+        <CatalogSidebar Filters="@filters" FiltersChanged="OnFiltersChanged" />
+
+        @if (isLoading)
+        {
+            <div class="catalog-loading">Завантаження книг...</div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="catalog-loading">@errorMessage</div>
+        }
+        else
+        {
+            <FileGrid Books="@books" SearchQuery="@filters.SearchQuery" />
+        }
+
+        <AccountPanel />
+    </div>
+</div>
+
+@code {
+    private List<Book> books = [];
+    private CatalogFilters filters = new();
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            books = await BookApiService.GetBooksAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Помилка завантаження: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private Task OnFiltersChanged(CatalogFilters updatedFilters)
+    {
+        filters = updatedFilters;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+}

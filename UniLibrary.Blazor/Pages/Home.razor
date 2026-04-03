@@ -1,5 +1,16 @@
 @page "/"
-@using UniLibrary.Blazor.Components
-<div>
-    <BookList />
+
+<div class="home-page">
+    <div class="home-page__logo">
+        <LibraryLogo />
+    </div>
+
+    <div class="home-page__content">
+        <CatalogLandingSection />
+        <EntranceSection />
+    </div>
+
+    <div class="home-page__footer">
+        © 2026 University Library System
+    </div>
 </div>

@@ -1,0 +1,64 @@
+@using UniLibrary.Blazor.Models
+
+<div class="file-grid-wrapper">
+    <div class="results-header">
+        <h2>Результати пошуку</h2>
+        <p>Знайдено @FilteredBooks.Count книг</p>
+    </div>
+
+    <div class="file-grid">
+        @foreach (var book in FilteredBooks)
+        {
+            <div class="file-card">
+                <div class="file-card__top">
+                    <div class="file-icon">📄</div>
+                    <div class="file-card__title-block">
+                        <h3>@book.Title</h3>
+                        <p>@book.Author</p>
+                    </div>
+                </div>
+
+                <div class="file-meta-grid">
+                    <div class="meta-box">
+                        <div class="meta-box__label">Рік</div>
+                        <div class="meta-box__value">@book.Year</div>
+                    </div>
+
+                    <div class="meta-box">
+                        <div class="meta-box__label">Примірників</div>
+                        <div class="meta-box__value">@book.AvailableCopies</div>
+                    </div>
+
+                    <div class="meta-box">
+                        <div class="meta-box__label">Формат</div>
+                        <div class="meta-box__value">PDF</div>
+                    </div>
+
+                    <div class="meta-box">
+                        <div class="meta-box__label">Тип</div>
+                        <div class="meta-box__value">Книга</div>
+                    </div>
+                </div>
+
+                <div class="file-card__actions">
+                    <button class="view-button">👁 Переглянути</button>
+                    <button class="icon-button">⬇</button>
+                    <button class="icon-button">🔖</button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<Book> Books { get; set; } = [];
+    [Parameter] public string SearchQuery { get; set; } = string.Empty;
+
+    private List<Book> FilteredBooks =>
+        Books
+            .Where(b =>
+                string.IsNullOrWhiteSpace(SearchQuery) ||
+                b.Title.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ||
+                b.Author.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+}

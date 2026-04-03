@@ -1,0 +1,57 @@
+<div class="account-panel">
+    @if (IsLoggedIn)
+    {
+        <div class="account-content">
+            <div class="account-user">
+                <div class="account-avatar">👤</div>
+                <div>
+                    <h3>@UserName</h3>
+                    <p>@UserEmail</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value stat-value--amber">24</div>
+                    <div class="stat-label">Взято книг</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-value stat-value--green">8</div>
+                    <div class="stat-label">Збережено</div>
+                </div>
+            </div>
+
+            <div class="account-actions">
+                <button class="action-button">⚙ Налаштування</button>
+                <button class="action-button action-button--danger" @onclick="ToggleLogin">
+                    🚪 Вийти з акаунту
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="account-empty">
+            <div class="account-avatar account-avatar--light">👤</div>
+            <h3>Увійдіть до системи</h3>
+            <p>Отримайте доступ до всіх функцій бібліотеки</p>
+
+            <button class="action-button action-button--primary" @onclick="ToggleLogin">
+                🔑 Увійти в акаунт
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool IsLoggedIn = true;
+
+    private string UserName = "Іван Петренко";
+    private string UserEmail = "ivan.petrenko@university.edu";
+
+    private void ToggleLogin()
+    {
+        IsLoggedIn = !IsLoggedIn;
+    }
+}

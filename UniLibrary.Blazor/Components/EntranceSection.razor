@@ -1,0 +1,33 @@
+@inject NavigationManager Navigation
+
+<div class="landing-column">
+    <div class="rounded-panel rounded-panel--large">
+        <div class="panel-title-row">
+            <span class="panel-icon">🚪</span>
+            <h2>Entrance</h2>
+        </div>
+
+        <div class="pill-list">
+            <button class="pill-button pill-button--primary" @onclick='() => Navigation.NavigateTo("/catalog")'>
+                <span>👤 Student Login</span>
+                <span>→</span>
+            </button>
+
+            <button class="pill-button" @onclick='() => Navigation.NavigateTo("/catalog")'>
+                <span>🎓 Faculty Login</span>
+                <span>→</span>
+            </button>
+
+            <button class="pill-button" @onclick='() => Navigation.NavigateTo("/catalog")'>
+                <span>⏰ Guest Access</span>
+                <span>→</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="rounded-panel rounded-panel--small rounded-panel--center">
+        <p class="muted-text">Library Hours</p>
+        <p class="accent-text">Mon-Fri: 8AM - 10PM</p>
+        <p class="accent-text">Sat-Sun: 10AM - 6PM</p>
+    </div>
+</div>

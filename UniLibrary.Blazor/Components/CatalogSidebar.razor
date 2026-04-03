@@ -1,0 +1,120 @@
+@using UniLibrary.Blazor.Models
+
+<div class="catalog-sidebar">
+    <div class="sidebar-section">
+        <div class="panel-title-row">
+            <span class="panel-icon">🔎</span>
+            <h3>Пошук</h3>
+        </div>
+
+        <div class="search-box">
+            <span class="search-box__icon">🔍</span>
+            <input placeholder="Введіть запит..." value="@Filters.SearchQuery" @oninput="OnSearchChanged" />
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="panel-title-row">
+            <span class="panel-icon">⚙</span>
+            <h3>Тип файлу</h3>
+        </div>
+
+        <div class="sidebar-list">
+            @foreach (var type in fileTypes)
+            {
+                <button class="filter-pill @(Filters.SelectedTypes.Contains(type.Id) ? "filter-pill--active" : "")"
+                        @onclick="@(() => ToggleType(type.Id))">
+                    <span>@type.Icon @type.Label</span>
+                    <span>@type.Count</span>
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <h3>Рік публікації</h3>
+        <div class="chips-wrap">
+            @foreach (var year in years)
+            {
+                <button class="chip @(Filters.SelectedYears.Contains(year) ? "chip--active" : "")"
+                        @onclick="@(() => ToggleYear(year))">
+                    @year
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <h3>Категорії</h3>
+        <div class="sidebar-list">
+            @foreach (var category in categories)
+            {
+                <button
+                    class="filter-pill filter-pill--left @(Filters.SelectedCategories.Contains(category) ? "filter-pill--active" : "")"
+                    @onclick="@(() => ToggleCategory(category))">
+                    @category
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public CatalogFilters Filters { get; set; } = new();
+    [Parameter] public EventCallback<CatalogFilters> FiltersChanged { get; set; }
+
+    private readonly List<(string Id, string Label, string Icon, int Count)> fileTypes =
+    [
+        ("books", "Книги", "📘", 45230),
+        ("articles", "Статті", "📄", 12450),
+        ("videos", "Відео", "🎬", 3200),
+        ("audio", "Аудіо", "🎧", 1850),
+        ("images", "Зображення", "🖼", 5670)
+    ];
+
+    private readonly List<string> years = ["2026", "2025", "2024", "2023", "2022", "2021", "2020"];
+
+    private readonly List<string> categories =
+    [
+        "Математика",
+        "Фізика",
+        "Хімія",
+        "Біологія",
+        "Історія",
+        "Література",
+        "Мистецтво",
+        "Комп'ютерні науки"
+    ];
+
+    private async Task OnSearchChanged(ChangeEventArgs e)
+    {
+        Filters.SearchQuery = e.Value?.ToString() ?? string.Empty;
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ToggleType(string type)
+    {
+        Toggle(Filters.SelectedTypes, type);
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ToggleYear(string year)
+    {
+        Toggle(Filters.SelectedYears, year);
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ToggleCategory(string category)
+    {
+        Toggle(Filters.SelectedCategories, category);
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private static void Toggle(List<string> list, string value)
+    {
+        if (list.Contains(value))
+            list.Remove(value);
+        else
+            list.Add(value);
+    }
+}
