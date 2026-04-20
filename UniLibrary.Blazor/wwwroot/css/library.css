@@ -1,3 +1,4 @@
+
 body {
     margin: 0;
     font-family: Arial, sans-serif;
@@ -71,7 +72,15 @@ body {
     border: 4px solid #e2e8f0;
     box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
 }
-
+.backgroundpanel{
+    width: 50vh;
+    height: 100%;
+    background: rgb(255, 255, 255);
+    border: 4px solid #e2e8f0;
+    padding: 2vh;
+    border-radius: 5vh;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+}
 .rounded-panel--large {
     border-radius: 999px;
     padding: 32px;
@@ -123,12 +132,12 @@ body {
 }
 
 .pill-button:hover {
-    background: #f1f5f9;
+    background: #61b0ff;
 }
 
 .pill-button--primary {
     background: linear-gradient(90deg, #10b981, #059669);
-    color: white;
+    color: rgb(0, 0, 0);
     border: none;
 }
 

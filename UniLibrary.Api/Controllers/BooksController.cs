@@ -15,7 +15,6 @@ public class BooksController : ControllerBase
             Title = "Clean Code",
             Author = "Robert C. Martin",
             Year = 2008,
-            AvailableCopies = 3
         },
         new Book
         {
@@ -23,7 +22,6 @@ public class BooksController : ControllerBase
             Title = "Design Patterns",
             Author = "Erich Gamma",
             Year = 1994,
-            AvailableCopies = 2
         },
         new Book
         {
@@ -31,7 +29,6 @@ public class BooksController : ControllerBase
             Title = "The Pragmatic Programmer",
             Author = "Andrew Hunt",
             Year = 1999,
-            AvailableCopies = 4
         }
     };
 

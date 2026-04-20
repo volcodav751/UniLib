@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using UniLibrary.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,12 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
+string connectionString =
+    builder.Configuration.GetConnectionString("LiteDb")
+    ?? "Filename=Unilab.db;Connection=shared";
+
+builder.Services.AddSingleton(new LiteDbContext(connectionString));
 
 var app = builder.Build();
 

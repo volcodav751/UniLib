@@ -1,10 +1,11 @@
 @inject NavigationManager Navigation
 
 <div class="landing-column">
-    <div class="rounded-panel rounded-panel--large">
+    <div class="backgroundpanel">
         <div class="panel-title-row">
             <span class="panel-icon">🔎</span>
             <h2>Catalog</h2>
+            
         </div>
 
         <div class="pill-list">
@@ -25,7 +26,7 @@
         </div>
     </div>
 
-    <div class="rounded-panel rounded-panel--small">
+    <div class="backgroundpanel">
         <div class="search-box">
             <span class="search-box__icon">🔍</span>
             <input placeholder="Search catalog..." @onfocus='() => Navigation.NavigateTo("/catalog")' />
