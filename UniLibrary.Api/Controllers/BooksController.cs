@@ -1,40 +1,42 @@
 using Microsoft.AspNetCore.Mvc;
+using UniLibrary.Api.Data;
 using UniLibrary.Api.Models;
 
-namespace UniLibrary.Api.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-public class BooksController : ControllerBase
+namespace UniLibrary.Api.Controllers
 {
-    private static readonly List<Book> Books = new()
+    [ApiController]
+    [Route("api/[controller]")]
+    public class BooksController : ControllerBase
     {
-        new Book
-        {
-            Id = 1,
-            Title = "Clean Code",
-            Author = "Robert C. Martin",
-            Year = 2008,
-        },
-        new Book
-        {
-            Id = 2,
-            Title = "Design Patterns",
-            Author = "Erich Gamma",
-            Year = 1994,
-        },
-        new Book
-        {
-            Id = 3,
-            Title = "The Pragmatic Programmer",
-            Author = "Andrew Hunt",
-            Year = 1999,
-        }
-    };
+        private readonly LiteDbContext _context;
 
-    [HttpGet]
-    public ActionResult<List<Book>> GetBooks()
-    {
-        return Ok(Books);
+        public BooksController(LiteDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public ActionResult<List<Book>> GetAll()
+        {
+            return Ok(_context.Books.FindAll().ToList());
+        }
+
+        [HttpGet("{id:int}")]
+        public ActionResult<Book> GetById(int id)
+        {
+            var book = _context.Books.FindById(id);
+
+            if (book == null)
+                return NotFound();
+
+            return Ok(book);
+        }
+
+        [HttpPost]
+        public ActionResult<Book> Create([FromBody] Book book)
+        {
+            _context.Books.Insert(book);
+            return Ok(book);
+        }
     }
 }

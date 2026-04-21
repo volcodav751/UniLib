@@ -6,7 +6,7 @@
     {
         @foreach (var book in books)
         {
-            <div>@book.Id - @book.Author - @book.Title - @book.Year - має кількість: @book.AvailableCopies </div>
+            <div>@book.Id - @book.Author - @book.Title - @book.PublicationYear  - чи є в нявності: @book.IsAvailable  </div>
         }
     }
     else

@@ -16,6 +16,8 @@ namespace UniLibrary.Api.Data
             Books.EnsureIndex(x => x.Title);
             Books.EnsureIndex(x => x.Author);
             Books.EnsureIndex(x => x.Category);
+            Books.EnsureIndex(x => x.Isbn);
+            Books.EnsureIndex(x => x.PublicationYear);
         }
 
         public ILiteCollection<Book> Books { get; }

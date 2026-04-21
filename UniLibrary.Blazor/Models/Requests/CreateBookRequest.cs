@@ -1,9 +1,7 @@
-namespace UniLibrary.Blazor.Models;
+namespace UniLibrary.Blazor.Models.Requests;
 
-public class Book
+public class CreateBookRequest
 {
-    public int Id { get; set; }
-
     public string Title { get; set; } = string.Empty;
 
     public string Author { get; set; } = string.Empty;
@@ -24,25 +22,9 @@ public class Book
 
     public List<string> Tags { get; set; } = new();
 
-    public bool IsAvailable { get; set; }
+    public bool IsAvailable { get; set; } = true;
 
-    public bool IsDigital { get; set; }
-
-    public DateTime CreatedAt { get; set; }
-
-    public DateTime UpdatedAt { get; set; }
-
-    public string? FileId { get; set; }
-
-    public string? OriginalFileName { get; set; }
-
-    public string? StoredFileName { get; set; }
-
-    public string? ContentType { get; set; }
-
-    public long? FileSizeBytes { get; set; }
-
-    public DateTime? FileUploadedAt { get; set; }
+    public bool IsDigital { get; set; } = false;
 
     public string? CoverImageUrl { get; set; }
 }

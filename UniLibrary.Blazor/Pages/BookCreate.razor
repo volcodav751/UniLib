@@ -1,0 +1,177 @@
+@page "/books/create"
+
+@using Microsoft.AspNetCore.Components.Forms
+@using UniLibrary.Blazor.Models.Requests
+@using UniLibrary.Blazor.Services
+
+@inject BookApiService BookApiService
+
+<PageTitle>Додати книгу</PageTitle>
+
+<h3>Додати книгу</h3>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <div class="alert @(IsError ? "alert-danger" : "alert-success")">
+        @StatusMessage
+    </div>
+}
+
+<EditForm Model="BookModel" OnValidSubmit="HandleSubmit">
+    <div class="mb-3">
+        <label class="form-label">Назва</label>
+        <InputText class="form-control" @bind-Value="BookModel.Title" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Автор</label>
+        <InputText class="form-control" @bind-Value="BookModel.Author" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Опис</label>
+        <InputTextArea class="form-control" @bind-Value="BookModel.Description" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Категорія</label>
+        <InputText class="form-control" @bind-Value="BookModel.Category" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Мова</label>
+        <InputText class="form-control" @bind-Value="BookModel.Language" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Видавництво</label>
+        <InputText class="form-control" @bind-Value="BookModel.Publisher" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Рік публікації</label>
+        <InputNumber class="form-control" @bind-Value="BookModel.PublicationYear" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Кількість сторінок</label>
+        <InputNumber class="form-control" @bind-Value="BookModel.PageCount" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">ISBN</label>
+        <InputText class="form-control" @bind-Value="BookModel.Isbn" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Теги (через кому)</label>
+        <InputText class="form-control" @bind-Value="TagsText" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">URL обкладинки</label>
+        <InputText class="form-control" @bind-Value="BookModel.CoverImageUrl" />
+    </div>
+
+    <div class="form-check mb-2">
+        <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsAvailable" />
+        <label class="form-check-label">Доступна</label>
+    </div>
+
+    <div class="form-check mb-3">
+        <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsDigital" />
+        <label class="form-check-label">Цифрова</label>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Файл книги</label>
+        <InputFile OnChange="HandleFileSelected" />
+        @if (SelectedFile is not null)
+        {
+            <div class="form-text">
+                Обрано файл: @SelectedFile.Name (@(SelectedFile.Size / 1024) KB)
+            </div>
+        }
+    </div>
+
+    <button class="btn btn-primary" type="submit" disabled="@IsSaving">
+        @(IsSaving ? "Збереження..." : "Додати книгу")
+    </button>
+</EditForm>
+
+@code {
+    private CreateBookRequest BookModel = new()
+    {
+        IsAvailable = true,
+        IsDigital = false
+    };
+
+    private string TagsText = string.Empty;
+    private IBrowserFile? SelectedFile;
+    private string? StatusMessage;
+    private bool IsError;
+    private bool IsSaving;
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        SelectedFile = e.File;
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            IsSaving = true;
+            StatusMessage = null;
+            IsError = false;
+
+            BookModel.Tags = TagsText
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+
+            var createdBook = await BookApiService.CreateBookAsync(BookModel);
+
+            if (createdBook is null)
+            {
+                IsError = true;
+                StatusMessage = "Не вдалося створити книгу.";
+                return;
+            }
+
+            if (SelectedFile is not null)
+            {
+                var uploaded = await BookApiService.UploadBookFileAsync(createdBook.Id, SelectedFile);
+
+                var uploadResult = await BookApiService.UploadBookFileAsync(createdBook.Id, SelectedFile);
+
+                if (!uploadResult.Success)
+                {
+                    IsError = true;
+                    StatusMessage = $"Книгу створено, але файл не завантажився. {uploadResult.Message}";
+                    return;
+                }
+            }
+
+            StatusMessage = "Книгу успішно додано.";
+            IsError = false;
+
+            BookModel = new CreateBookRequest
+            {
+                IsAvailable = true,
+                IsDigital = false
+            };
+
+            TagsText = string.Empty;
+            SelectedFile = null;
+        }
+        catch (Exception ex)
+        {
+            IsError = true;
+            StatusMessage = $"Помилка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+}
