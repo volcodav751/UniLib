@@ -61,5 +61,22 @@ public class BookApiService
         {
             return (false, $"Exception: {ex.Message}");
         }
+        
     }
+    public string GetBookPreviewUrl(int id)
+    {
+        var baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+
+        return $"{baseUrl}/api/books/{id}/preview";
+    }
+    public string GetBookFileUrl(int id)
+    {
+        var baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+
+        return $"{baseUrl}/api/books/{id}/file";
+    }
+    public async Task<Book?> GetBookByIdAsync(int id)
+{
+    return await _httpClient.GetFromJsonAsync<Book>($"api/books/{id}");
+}
 }
