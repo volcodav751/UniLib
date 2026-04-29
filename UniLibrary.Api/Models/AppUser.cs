@@ -13,7 +13,7 @@ namespace UniLibrary.Api.Models
 
         public string PasswordHash { get; set; } = string.Empty;
 
-        public string Role { get; set; } = UserRoles.Student;
+        public string Role { get; set; } = "Student";
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

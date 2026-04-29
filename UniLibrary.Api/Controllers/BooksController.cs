@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using UniLibrary.Api.Data;
 using UniLibrary.Api.Models;
 using UniLibrary.Api.Models.Requests;
+using Microsoft.AspNetCore.Http;
 
 namespace UniLibrary.Api.Controllers
 {
@@ -34,9 +35,14 @@ namespace UniLibrary.Api.Controllers
         }
 
         [HttpPost]
-        [HttpPost]
         public ActionResult<Book> Create([FromBody] CreateBookRequest request)
         {
+            var accessError = TeacherOnly();
+
+            if (accessError is not null)
+            {
+                return accessError;
+            }
             var nextId = _context.Books.Count() == 0
                 ? 1
                 : _context.Books.Max(x => x.Id) + 1;
@@ -115,6 +121,12 @@ namespace UniLibrary.Api.Controllers
         [HttpPost("{id:int}/file")]
         public IActionResult UploadFile(int id, [FromForm] UploadBookFileRequest request)
         {
+             var accessError = TeacherOnly();
+
+            if (accessError is not null)
+            {
+                return accessError;
+            }
             var book = _context.Books.FindById(id);
 
             if (book == null)
@@ -243,6 +255,29 @@ namespace UniLibrary.Api.Controllers
 
             return File(memoryStream, book.ContentType, book.OriginalFileName);
         }
-    }
+        private bool IsTeacher()
+        {
+            if (!Request.Headers.TryGetValue("X-User-Role", out var roleHeader))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                roleHeader.ToString(),
+                UserRoles.Teacher,
+                StringComparison.OrdinalIgnoreCase
+            );
+        }
+
+        private ActionResult? TeacherOnly()
+        {
+            if (IsTeacher())
+            {
+                return null;
+            }
+
+            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки викладачу.");
+        }
+            }
     
 }

@@ -1,0 +1,92 @@
+@page "/register"
+
+@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Services
+
+@inject AuthApiService AuthApiService
+
+<div class="register-page">
+    <div class="register-card">
+
+        <div class="register-header">
+            <h1>Створення акаунта</h1>
+            <p>Зареєструйтесь, щоб користуватися бібліотекою</p>
+        </div>
+
+        <EditForm Model="registerModel" OnValidSubmit="RegisterAsync">
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+                <label>Повне ім'я</label>
+                <InputText class="form-control"
+                           @bind-Value="registerModel.FullName"
+                           placeholder="Наприклад: Іван Петренко" />
+                <ValidationMessage For="@(() => registerModel.FullName)" />
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <InputText class="form-control"
+                           @bind-Value="registerModel.Email"
+                           placeholder="example@gmail.com" />
+                <ValidationMessage For="@(() => registerModel.Email)" />
+            </div>
+
+            <div class="form-group">
+                <label>Пароль</label>
+                <InputText class="form-control"
+                           type="password"
+                           @bind-Value="registerModel.Password"
+                           placeholder="Мінімум 6 символів" />
+                <ValidationMessage For="@(() => registerModel.Password)" />
+            </div>
+
+            <div class="form-group">
+                <label>Тип користувача</label>
+                <InputSelect class="form-control" @bind-Value="registerModel.Role">
+                    <option value="Student">Учень / студент</option>
+                    <option value="Teacher">Викладач</option>
+                </InputSelect>
+            </div>
+
+            <button class="register-button" type="submit" disabled="@isLoading">
+                @(isLoading ? "Реєстрація..." : "Зареєструватися")
+            </button>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <div class="message @(isSuccess ? "success" : "error")">
+                    @message
+                </div>
+            }
+        </EditForm>
+
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerModel = new RegisterRequest();
+
+    private string message = "";
+    private bool isSuccess = false;
+    private bool isLoading = false;
+
+    private async Task RegisterAsync()
+    {
+        isLoading = true;
+        message = "";
+        isSuccess = false;
+
+        var result = await AuthApiService.RegisterAsync(registerModel);
+
+        isSuccess = result.Success;
+        message = result.Message;
+
+        if (result.Success)
+        {
+            registerModel = new RegisterRequest();
+        }
+
+        isLoading = false;
+    }
+}

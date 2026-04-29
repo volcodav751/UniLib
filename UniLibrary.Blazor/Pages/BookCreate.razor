@@ -3,7 +3,8 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using UniLibrary.Blazor.Models.Requests
 @using UniLibrary.Blazor.Services
-
+@inject AuthApiService AuthApiService
+@inject NavigationManager Navigation
 @inject BookApiService BookApiService
 
 <PageTitle>Додати книгу</PageTitle>
@@ -16,89 +17,104 @@
         @StatusMessage
     </div>
 }
-
-<EditForm Model="BookModel" OnValidSubmit="HandleSubmit">
-    <div class="mb-3">
-        <label class="form-label">Назва</label>
-        <InputText class="form-control" @bind-Value="BookModel.Title" />
+@if (isCheckingAccess)
+{
+    <p>Перевірка доступу...</p>
+}
+else if (!isTeacher)
+{
+    <div class="alert alert-danger">
+        Додавати книги та файли може тільки викладач.
     </div>
 
-    <div class="mb-3">
-        <label class="form-label">Автор</label>
-        <InputText class="form-control" @bind-Value="BookModel.Author" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Опис</label>
-        <InputTextArea class="form-control" @bind-Value="BookModel.Description" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Категорія</label>
-        <InputText class="form-control" @bind-Value="BookModel.Category" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Мова</label>
-        <InputText class="form-control" @bind-Value="BookModel.Language" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Видавництво</label>
-        <InputText class="form-control" @bind-Value="BookModel.Publisher" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Рік публікації</label>
-        <InputNumber class="form-control" @bind-Value="BookModel.PublicationYear" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Кількість сторінок</label>
-        <InputNumber class="form-control" @bind-Value="BookModel.PageCount" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">ISBN</label>
-        <InputText class="form-control" @bind-Value="BookModel.Isbn" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Теги (через кому)</label>
-        <InputText class="form-control" @bind-Value="TagsText" />
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">URL обкладинки</label>
-        <InputText class="form-control" @bind-Value="BookModel.CoverImageUrl" />
-    </div>
-
-    <div class="form-check mb-2">
-        <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsAvailable" />
-        <label class="form-check-label">Доступна</label>
-    </div>
-
-    <div class="form-check mb-3">
-        <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsDigital" />
-        <label class="form-check-label">Цифрова</label>
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Файл книги</label>
-        <InputFile OnChange="HandleFileSelected" />
-        @if (SelectedFile is not null)
-        {
-            <div class="form-text">
-                Обрано файл: @SelectedFile.Name (@(SelectedFile.Size / 1024) KB)
-            </div>
-        }
-    </div>
-
-    <button class="btn btn-primary" type="submit" disabled="@IsSaving">
-        @(IsSaving ? "Збереження..." : "Додати книгу")
+    <button class="btn btn-primary" @onclick="GoLogin">
+        Увійти як викладач
     </button>
-</EditForm>
+}
+else
+{
+    <EditForm Model="BookModel" OnValidSubmit="HandleSubmit">
+        <div class="mb-3">
+            <label class="form-label">Назва</label>
+            <InputText class="form-control" @bind-Value="BookModel.Title" />
+        </div>
 
+        <div class="mb-3">
+            <label class="form-label">Автор</label>
+            <InputText class="form-control" @bind-Value="BookModel.Author" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Опис</label>
+            <InputTextArea class="form-control" @bind-Value="BookModel.Description" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Категорія</label>
+            <InputText class="form-control" @bind-Value="BookModel.Category" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Мова</label>
+            <InputText class="form-control" @bind-Value="BookModel.Language" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Видавництво</label>
+            <InputText class="form-control" @bind-Value="BookModel.Publisher" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Рік публікації</label>
+            <InputNumber class="form-control" @bind-Value="BookModel.PublicationYear" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Кількість сторінок</label>
+            <InputNumber class="form-control" @bind-Value="BookModel.PageCount" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">ISBN</label>
+            <InputText class="form-control" @bind-Value="BookModel.Isbn" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Теги (через кому)</label>
+            <InputText class="form-control" @bind-Value="TagsText" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">URL обкладинки</label>
+            <InputText class="form-control" @bind-Value="BookModel.CoverImageUrl" />
+        </div>
+
+        <div class="form-check mb-2">
+            <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsAvailable" />
+            <label class="form-check-label">Доступна</label>
+        </div>
+
+        <div class="form-check mb-3">
+            <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsDigital" />
+            <label class="form-check-label">Цифрова</label>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Файл книги</label>
+            <InputFile OnChange="HandleFileSelected" />
+            @if (SelectedFile is not null)
+            {
+                <div class="form-text">
+                    Обрано файл: @SelectedFile.Name (@(SelectedFile.Size / 1024) KB)
+                </div>
+            }
+        </div>
+
+        <button class="btn btn-primary" type="submit" disabled="@IsSaving">
+            @(IsSaving ? "Збереження..." : "Додати книгу")
+        </button>
+    </EditForm>
+}
 @code {
     private CreateBookRequest BookModel = new()
     {
@@ -140,8 +156,6 @@
 
             if (SelectedFile is not null)
             {
-                var uploaded = await BookApiService.UploadBookFileAsync(createdBook.Id, SelectedFile);
-
                 var uploadResult = await BookApiService.UploadBookFileAsync(createdBook.Id, SelectedFile);
 
                 if (!uploadResult.Success)
@@ -173,5 +187,19 @@
         {
             IsSaving = false;
         }
+
+    }
+    private bool isTeacher;
+    private bool isCheckingAccess = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isTeacher = await AuthApiService.IsTeacherAsync();
+        isCheckingAccess = false;
+    }
+
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
     }
 }

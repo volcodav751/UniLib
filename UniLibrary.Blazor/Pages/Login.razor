@@ -1,0 +1,78 @@
+@page "/login"
+
+@using Microsoft.AspNetCore.Components.Forms
+@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Services
+
+@inject AuthApiService AuthApiService
+@inject NavigationManager Navigation
+
+<div class="register-page">
+    <div class="register-card">
+
+        <div class="register-header">
+            <h1>Вхід</h1>
+            <p>Увійдіть у свій акаунт</p>
+        </div>
+
+        <EditForm Model="loginModel" OnValidSubmit="LoginAsync">
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+                <label>Email</label>
+                <InputText class="form-control"
+                           @bind-Value="loginModel.Email"
+                           placeholder="example@gmail.com" />
+                <ValidationMessage For="@(() => loginModel.Email)" />
+            </div>
+
+            <div class="form-group">
+                <label>Пароль</label>
+                <InputText class="form-control"
+                           type="password"
+                           @bind-Value="loginModel.Password"
+                           placeholder="Введіть пароль" />
+                <ValidationMessage For="@(() => loginModel.Password)" />
+            </div>
+
+            <button class="register-button" type="submit" disabled="@isLoading">
+                @(isLoading ? "Вхід..." : "Увійти")
+            </button>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <div class="message @(isSuccess ? "success" : "error")">
+                    @message
+                </div>
+            }
+        </EditForm>
+
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new();
+
+    private string message = "";
+    private bool isSuccess = false;
+    private bool isLoading = false;
+
+    private async Task LoginAsync()
+    {
+        isLoading = true;
+        message = "";
+        isSuccess = false;
+
+        var result = await AuthApiService.LoginAsync(loginModel);
+
+        isSuccess = result.Success;
+        message = result.Message;
+
+        if (result.Success)
+        {
+            Navigation.NavigateTo("/catalog");
+        }
+
+        isLoading = false;
+    }
+}

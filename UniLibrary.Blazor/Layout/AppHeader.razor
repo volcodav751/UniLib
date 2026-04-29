@@ -1,0 +1,155 @@
+@using Microsoft.AspNetCore.Components.Web
+@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Services
+
+@implements IDisposable
+
+@inject NavigationManager Navigation
+@inject AuthApiService AuthApiService
+
+<header class="app-header">
+    <div class="header-inner">
+
+        <div class="header-logo" @onclick="GoHome">
+            <div class="logo-icon">UL</div>
+            <div class="logo-text">
+                <span class="logo-title">UniLibrary</span>
+                <span class="logo-subtitle">University Library</span>
+            </div>
+        </div>
+
+        <div class="header-search">
+            <input
+                type="text"
+                placeholder="Пошук книг, документів, авторів..."
+                @bind="searchText"
+                @bind:event="oninput"
+                @onkeydown="HandleSearchKey" />
+
+            <button class="search-button" @onclick="Search">
+                Пошук
+            </button>
+        </div>
+
+        <div class="header-actions">
+            @if (isTeacher)
+            {
+                <button class="add-book-button" @onclick="GoAddBook">
+                    Додати книгу
+                </button>
+            }
+
+            @if (currentUser is null)
+            {
+                <button class="profile-button" @onclick="GoLogin">
+                    <div class="profile-avatar">?</div>
+                    <div class="profile-info">
+                        <span class="profile-name">Вхід</span>
+                        <span class="profile-role">Акаунт</span>
+                    </div>
+                </button>
+            }
+            else
+            {
+                <button class="profile-button" @onclick="GoProfile">
+                    <div class="profile-avatar">@currentUser.FullName.FirstOrDefault()</div>
+                    <div class="profile-info">
+                        <span class="profile-name">@currentUser.FullName</span>
+                        <span class="profile-role">@currentUser.Role</span>
+                    </div>
+                </button>
+
+                <button class="logout-button" @onclick="LogoutAsync">
+                    Вийти
+                </button>
+            }
+        </div>
+
+    </div>
+</header>
+
+@code {
+    private string searchText = "";
+
+    private UserResponse? currentUser;
+    private bool isTeacher;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthApiService.AuthStateChanged += OnAuthStateChanged;
+
+        await LoadUserAsync();
+    }
+
+    private async Task LoadUserAsync()
+    {
+        currentUser = await AuthApiService.GetCurrentUserAsync();
+        isTeacher = currentUser?.Role == "Teacher";
+    }
+
+    private void OnAuthStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadUserAsync();
+            StateHasChanged();
+        });
+    }
+
+    private void Search()
+    {
+        string query = searchText.Trim();
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            Navigation.NavigateTo("/catalog");
+            return;
+        }
+
+        string encodedQuery = Uri.EscapeDataString(query);
+        Navigation.NavigateTo($"/catalog?search={encodedQuery}");
+    }
+
+    private void HandleSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            Search();
+        }
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void GoProfile()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void GoAddBook()
+    {
+        Navigation.NavigateTo("/books/create");
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthApiService.LogoutAsync();
+
+        currentUser = null;
+        isTeacher = false;
+
+        Navigation.NavigateTo("/");
+    }
+
+    public void Dispose()
+    {
+        AuthApiService.AuthStateChanged -= OnAuthStateChanged;
+    }
+}
