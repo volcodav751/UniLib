@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using UniLibrary.Api.Data;
 using UniLibrary.Api.Models;
 using UniLibrary.Api.Models.Requests;
@@ -23,7 +24,7 @@ namespace UniLibrary.Api.Controllers
             string email = request.Email.Trim().ToLowerInvariant();
             string role = request.Role.Trim();
 
-            if (role != UserRoles.Student && role != UserRoles.Teacher)
+            if (!UserRoles.IsValid(role))
             {
                 return BadRequest("Невірна роль користувача");
             }
@@ -46,15 +47,7 @@ namespace UniLibrary.Api.Controllers
 
             _context.Users.Insert(newUser);
 
-            UserResponse response = new UserResponse
-            {
-                Id = newUser.Id,
-                FullName = newUser.FullName,
-                Email = newUser.Email,
-                Role = newUser.Role
-            };
-
-            return Ok(response);
+            return Ok(ToUserResponse(newUser));
         }
 
         [HttpPost("login")]
@@ -79,15 +72,97 @@ namespace UniLibrary.Api.Controllers
                 return BadRequest("Невірний пароль");
             }
 
-            UserResponse response = new UserResponse
+            return Ok(ToUserResponse(user));
+        }
+
+        [HttpGet("users")]
+        public ActionResult<List<UserResponse>> GetUsers()
+        {
+            ActionResult? accessError = AdminOnly();
+
+            if (accessError is not null)
+            {
+                return accessError;
+            }
+
+            List<UserResponse> users = _context.Users
+                .FindAll()
+                .OrderBy(user => user.Id)
+                .Select(ToUserResponse)
+                .ToList();
+
+            return Ok(users);
+        }
+
+        [HttpDelete("users/{id:int}")]
+        public IActionResult DeleteUser(int id)
+        {
+            ActionResult? accessError = AdminOnly();
+
+            if (accessError is not null)
+            {
+                return accessError;
+            }
+
+            AppUser? user = _context.Users.FindById(id);
+
+            if (user == null)
+            {
+                return NotFound("Користувача не знайдено");
+            }
+
+            if (TryGetCurrentUserId(out int currentUserId) && currentUserId == id)
+            {
+                return BadRequest("Адмін не може видалити власний акаунт під час активної сесії.");
+            }
+
+            if (user.Role == UserRoles.Admin)
+            {
+                int adminsCount = _context.Users.Count(existingUser => existingUser.Role == UserRoles.Admin);
+
+                if (adminsCount <= 1)
+                {
+                    return BadRequest("Не можна видалити останнього адміністратора.");
+                }
+            }
+
+            _context.Users.Delete(id);
+
+            return NoContent();
+        }
+
+        private ActionResult? AdminOnly()
+        {
+            if (Request.Headers.TryGetValue("X-User-Role", out var roleHeader)
+                && string.Equals(roleHeader.ToString(), UserRoles.Admin, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки адміністратору.");
+        }
+
+        private bool TryGetCurrentUserId(out int currentUserId)
+        {
+            currentUserId = 0;
+
+            if (!Request.Headers.TryGetValue("X-User-Id", out var userIdHeader))
+            {
+                return false;
+            }
+
+            return int.TryParse(userIdHeader.ToString(), out currentUserId);
+        }
+
+        private static UserResponse ToUserResponse(AppUser user)
+        {
+            return new UserResponse
             {
                 Id = user.Id,
                 FullName = user.FullName,
                 Email = user.Email,
                 Role = user.Role
             };
-
-            return Ok(response);
         }
     }
 }

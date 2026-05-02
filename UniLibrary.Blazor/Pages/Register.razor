@@ -4,6 +4,7 @@
 @using UniLibrary.Blazor.Services
 
 @inject AuthApiService AuthApiService
+@inject NavigationManager Navigation
 
 <div class="register-page">
     <div class="register-card">
@@ -46,6 +47,7 @@
                 <InputSelect class="form-control" @bind-Value="registerModel.Role">
                     <option value="Student">Учень / студент</option>
                     <option value="Teacher">Викладач</option>
+                    <option value="Admin">Адміністратор</option>
                 </InputSelect>
             </div>
 
@@ -61,6 +63,13 @@
             }
         </EditForm>
 
+        <div class="auth-switch">
+            <span>Вже маєте акаунт?</span>
+            <button type="button" class="auth-link-button" @onclick="GoLogin">
+                Увійти
+            </button>
+        </div>
+
     </div>
 </div>
 
@@ -70,6 +79,11 @@
     private string message = "";
     private bool isSuccess = false;
     private bool isLoading = false;
+
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
 
     private async Task RegisterAsync()
     {

@@ -37,12 +37,13 @@ namespace UniLibrary.Api.Controllers
         [HttpPost]
         public ActionResult<Book> Create([FromBody] CreateBookRequest request)
         {
-            var accessError = TeacherOnly();
+            var accessError = TeacherOrAdminOnly();
 
             if (accessError is not null)
             {
                 return accessError;
             }
+
             var nextId = _context.Books.Count() == 0
                 ? 1
                 : _context.Books.Max(x => x.Id) + 1;
@@ -75,6 +76,13 @@ namespace UniLibrary.Api.Controllers
         [HttpPut("{id:int}")]
         public ActionResult<Book> Update(int id, [FromBody] CreateBookRequest request)
         {
+            var accessError = TeacherOrAdminOnly();
+
+            if (accessError is not null)
+            {
+                return accessError;
+            }
+
             var book = _context.Books.FindById(id);
 
             if (book == null)
@@ -103,6 +111,13 @@ namespace UniLibrary.Api.Controllers
         [HttpDelete("{id:int}")]
         public IActionResult Delete(int id)
         {
+            var accessError = AdminOnly();
+
+            if (accessError is not null)
+            {
+                return accessError;
+            }
+
             var book = _context.Books.FindById(id);
 
             if (book == null)
@@ -121,12 +136,13 @@ namespace UniLibrary.Api.Controllers
         [HttpPost("{id:int}/file")]
         public IActionResult UploadFile(int id, [FromForm] UploadBookFileRequest request)
         {
-             var accessError = TeacherOnly();
+            var accessError = TeacherOrAdminOnly();
 
             if (accessError is not null)
             {
                 return accessError;
             }
+
             var book = _context.Books.FindById(id);
 
             if (book == null)
@@ -208,6 +224,13 @@ namespace UniLibrary.Api.Controllers
         [HttpDelete("{id:int}/file")]
         public IActionResult DeleteFile(int id)
         {
+            var accessError = TeacherOrAdminOnly();
+
+            if (accessError is not null)
+            {
+                return accessError;
+            }
+
             var book = _context.Books.FindById(id);
 
             if (book == null)
@@ -230,6 +253,7 @@ namespace UniLibrary.Api.Controllers
 
             return NoContent();
         }
+
         [HttpGet("{id:int}/preview")]
         public IActionResult PreviewFile(int id)
         {
@@ -253,31 +277,52 @@ namespace UniLibrary.Api.Controllers
             Response.Headers["Content-Disposition"] =
                 $"inline; filename=\"{book.OriginalFileName ?? "preview"}\"";
 
-            return File(memoryStream, book.ContentType, book.OriginalFileName);
+            return File(memoryStream, book.ContentType ?? "application/octet-stream", book.OriginalFileName);
         }
-        private bool IsTeacher()
+
+        private string? GetCurrentRole()
         {
             if (!Request.Headers.TryGetValue("X-User-Role", out var roleHeader))
-            {
-                return false;
-            }
-
-            return string.Equals(
-                roleHeader.ToString(),
-                UserRoles.Teacher,
-                StringComparison.OrdinalIgnoreCase
-            );
-        }
-
-        private ActionResult? TeacherOnly()
-        {
-            if (IsTeacher())
             {
                 return null;
             }
 
-            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки викладачу.");
+            return roleHeader.ToString();
         }
+
+        private bool IsTeacherOrAdmin()
+        {
+            string? role = GetCurrentRole();
+
+            return string.Equals(role, UserRoles.Teacher, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(role, UserRoles.Admin, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsAdmin()
+        {
+            string? role = GetCurrentRole();
+
+            return string.Equals(role, UserRoles.Admin, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private ActionResult? TeacherOrAdminOnly()
+        {
+            if (IsTeacherOrAdmin())
+            {
+                return null;
             }
-    
+
+            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки викладачу або адміністратору.");
+        }
+
+        private ActionResult? AdminOnly()
+        {
+            if (IsAdmin())
+            {
+                return null;
+            }
+
+            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки адміністратору.");
+        }
+    }
 }

@@ -1,0 +1,219 @@
+@page "/profile"
+
+@using Microsoft.JSInterop
+@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Services
+
+@inject AuthApiService AuthApiService
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+
+<PageTitle>Профіль</PageTitle>
+
+<div class="profile-page">
+    <div class="profile-card">
+        <div class="profile-page-header">
+            <div class="profile-page-avatar">@AvatarLetter</div>
+            <div>
+                <h1>Профіль користувача</h1>
+                <p>Інформація про поточний акаунт</p>
+            </div>
+        </div>
+
+        @if (currentUser is null)
+        {
+            <div class="alert alert-warning">
+                Ви ще не увійшли в акаунт.
+            </div>
+
+            <button class="btn btn-primary" @onclick="GoLogin">
+                Перейти до входу
+            </button>
+        }
+        else
+        {
+            <div class="profile-info-grid">
+                <div class="profile-info-item">
+                    <span>Ім'я</span>
+                    <strong>@currentUser.FullName</strong>
+                </div>
+
+                <div class="profile-info-item">
+                    <span>Email</span>
+                    <strong>@currentUser.Email</strong>
+                </div>
+
+                <div class="profile-info-item">
+                    <span>Роль</span>
+                    <strong>@GetRoleName(currentUser.Role)</strong>
+                </div>
+
+                <div class="profile-info-item">
+                    <span>ID користувача</span>
+                    <strong>@currentUser.Id</strong>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button class="btn btn-outline-primary" @onclick="GoCatalog">
+                    Перейти до каталогу
+                </button>
+
+                <button class="btn btn-outline-danger" @onclick="LogoutAsync">
+                    Вийти з акаунта
+                </button>
+            </div>
+        }
+    </div>
+
+    @if (currentUser?.Role == "Admin")
+    {
+        <div class="profile-card admin-card">
+            <div class="profile-page-header">
+                <div class="profile-page-avatar admin-avatar">A</div>
+                <div>
+                    <h2>Панель адміністратора</h2>
+                    <p>Адмін може видаляти користувачів</p>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <div class="alert @(isError ? "alert-danger" : "alert-success")">
+                    @statusMessage
+                </div>
+            }
+
+            @if (isLoadingUsers)
+            {
+                <p>Завантаження користувачів...</p>
+            }
+            else if (users.Count == 0)
+            {
+                <p class="text-muted">Користувачів не знайдено або немає доступу.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Ім'я</th>
+                                <th>Email</th>
+                                <th>Роль</th>
+                                <th>Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (UserResponse user in users)
+                            {
+                                <tr>
+                                    <td>@user.Id</td>
+                                    <td>@user.FullName</td>
+                                    <td>@user.Email</td>
+                                    <td>@GetRoleName(user.Role)</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger"
+                                                disabled="@(user.Id == currentUser.Id)"
+                                                @onclick="() => DeleteUserAsync(user)">
+                                            Видалити
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private UserResponse? currentUser;
+    private List<UserResponse> users = new();
+    private bool isLoadingUsers;
+    private string? statusMessage;
+    private bool isError;
+
+    private string AvatarLetter
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(currentUser?.FullName))
+            {
+                return "?";
+            }
+
+            return currentUser.FullName.Trim()[0].ToString().ToUpperInvariant();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthApiService.GetCurrentUserAsync();
+
+        if (currentUser?.Role == "Admin")
+        {
+            await LoadUsersAsync();
+        }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        isLoadingUsers = true;
+        users = await AuthApiService.GetUsersAsync();
+        isLoadingUsers = false;
+    }
+
+    private async Task DeleteUserAsync(UserResponse user)
+    {
+        bool confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            $"Видалити користувача {user.FullName} ({user.Email})?"
+        );
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await AuthApiService.DeleteUserAsync(user.Id);
+
+        statusMessage = result.Message;
+        isError = !result.Success;
+
+        if (result.Success)
+        {
+            await LoadUsersAsync();
+        }
+    }
+
+    private string GetRoleName(string role)
+    {
+        return role switch
+        {
+            "Student" => "Учень / студент",
+            "Teacher" => "Викладач",
+            "Admin" => "Адміністратор",
+            _ => role
+        };
+    }
+
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void GoCatalog()
+    {
+        Navigation.NavigateTo("/catalog");
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthApiService.LogoutAsync();
+        Navigation.NavigateTo("/");
+    }
+}

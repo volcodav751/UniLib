@@ -97,6 +97,32 @@ namespace UniLibrary.Blazor.Services
             return $"{baseUrl}/api/books/{id}/file";
         }
 
+        public async Task<(bool Success, string Message)> DeleteBookAsync(int id)
+        {
+            try
+            {
+                using HttpRequestMessage message = await CreateRequestWithUserRoleAsync(
+                    HttpMethod.Delete,
+                    $"api/books/{id}"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return (true, "Книгу видалено.");
+                }
+
+                string responseText = await response.Content.ReadAsStringAsync();
+
+                return (false, string.IsNullOrWhiteSpace(responseText) ? "Не вдалося видалити книгу." : responseText);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Помилка: {ex.Message}");
+            }
+        }
+
         private async Task<HttpRequestMessage> CreateRequestWithUserRoleAsync(HttpMethod method, string url)
         {
             var message = new HttpRequestMessage(method, url);
@@ -106,6 +132,11 @@ namespace UniLibrary.Blazor.Services
             if (!string.IsNullOrWhiteSpace(currentUser?.Role))
             {
                 message.Headers.Add("X-User-Role", currentUser.Role);
+            }
+
+            if (currentUser is not null)
+            {
+                message.Headers.Add("X-User-Id", currentUser.Id.ToString());
             }
 
             return message;

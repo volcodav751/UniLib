@@ -32,7 +32,7 @@
         </div>
 
         <div class="header-actions">
-            @if (isTeacher)
+            @if (canManageBooks)
             {
                 <button class="add-book-button" @onclick="GoAddBook">
                     Додати книгу
@@ -41,18 +41,24 @@
 
             @if (currentUser is null)
             {
-                <button class="profile-button" @onclick="GoLogin">
-                    <div class="profile-avatar">?</div>
-                    <div class="profile-info">
-                        <span class="profile-name">Вхід</span>
-                        <span class="profile-role">Акаунт</span>
-                    </div>
-                </button>
+                <div class="guest-actions">
+                    <button class="register-header-button" @onclick="GoRegister">
+                        Реєстрація
+                    </button>
+
+                    <button class="profile-button" @onclick="GoLogin">
+                        <div class="profile-avatar">?</div>
+                        <div class="profile-info">
+                            <span class="profile-name">Вхід</span>
+                            <span class="profile-role">Акаунт</span>
+                        </div>
+                    </button>
+                </div>
             }
             else
             {
                 <button class="profile-button" @onclick="GoProfile">
-                    <div class="profile-avatar">@currentUser.FullName.FirstOrDefault()</div>
+                    <div class="profile-avatar">@GetAvatarLetter()</div>
                     <div class="profile-info">
                         <span class="profile-name">@currentUser.FullName</span>
                         <span class="profile-role">@currentUser.Role</span>
@@ -72,7 +78,7 @@
     private string searchText = "";
 
     private UserResponse? currentUser;
-    private bool isTeacher;
+    private bool canManageBooks;
 
     protected override async Task OnInitializedAsync()
     {
@@ -84,7 +90,7 @@
     private async Task LoadUserAsync()
     {
         currentUser = await AuthApiService.GetCurrentUserAsync();
-        isTeacher = currentUser?.Role == "Teacher";
+        canManageBooks = currentUser?.Role == "Teacher" || currentUser?.Role == "Admin";
     }
 
     private void OnAuthStateChanged()
@@ -128,9 +134,14 @@
         Navigation.NavigateTo("/login");
     }
 
+    private void GoRegister()
+    {
+        Navigation.NavigateTo("/register");
+    }
+
     private void GoProfile()
     {
-        Navigation.NavigateTo("/login");
+        Navigation.NavigateTo("/profile");
     }
 
     private void GoAddBook()
@@ -138,12 +149,22 @@
         Navigation.NavigateTo("/books/create");
     }
 
+    private string GetAvatarLetter()
+    {
+        if (string.IsNullOrWhiteSpace(currentUser?.FullName))
+        {
+            return "?";
+        }
+
+        return currentUser.FullName.Trim()[0].ToString().ToUpperInvariant();
+    }
+
     private async Task LogoutAsync()
     {
         await AuthApiService.LogoutAsync();
 
         currentUser = null;
-        isTeacher = false;
+        canManageBooks = false;
 
         Navigation.NavigateTo("/");
     }

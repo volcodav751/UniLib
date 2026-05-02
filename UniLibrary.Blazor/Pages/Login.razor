@@ -47,6 +47,13 @@
             }
         </EditForm>
 
+        <div class="auth-switch">
+            <span>Немає акаунта?</span>
+            <button type="button" class="auth-link-button" @onclick="GoRegister">
+                Зареєструватися
+            </button>
+        </div>
+
     </div>
 </div>
 
@@ -56,6 +63,11 @@
     private string message = "";
     private bool isSuccess = false;
     private bool isLoading = false;
+
+    private void GoRegister()
+    {
+        Navigation.NavigateTo("/register");
+    }
 
     private async Task LoginAsync()
     {

@@ -1,9 +1,13 @@
 @page "/books/{Id:int}"
 
+@using Microsoft.JSInterop
 @using UniLibrary.Blazor.Models
 @using UniLibrary.Blazor.Services
 
 @inject BookApiService BookApiService
+@inject AuthApiService AuthApiService
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
 
 <PageTitle>Перегляд книги</PageTitle>
 
@@ -13,7 +17,26 @@
 }
 else
 {
-    <h3>@Book.Title</h3>
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+            <h3>@Book.Title</h3>
+            <p class="text-muted mb-0">@Book.Author</p>
+        </div>
+
+        @if (isAdmin)
+        {
+            <button class="btn btn-danger" @onclick="DeleteBookAsync">
+                Видалити книгу
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert @(IsError ? "alert-danger" : "alert-success")">
+            @StatusMessage
+        </div>
+    }
 
     <p><strong>Автор:</strong> @Book.Author</p>
     <p><strong>Категорія:</strong> @Book.Category</p>
@@ -57,10 +80,14 @@ else
     public int Id { get; set; }
 
     private Book? Book;
+    private bool isAdmin;
+    private string? StatusMessage;
+    private bool IsError;
 
     protected override async Task OnInitializedAsync()
     {
         Book = await BookApiService.GetBookByIdAsync(Id);
+        isAdmin = await AuthApiService.IsAdminAsync();
     }
 
     private bool CanPreview(Book book)
@@ -69,5 +96,34 @@ else
             || book.OriginalFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true
             || book.ContentType == "text/plain"
             || book.OriginalFileName?.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private async Task DeleteBookAsync()
+    {
+        if (Book is null)
+        {
+            return;
+        }
+
+        bool confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            $"Видалити книгу '{Book.Title}'?"
+        );
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await BookApiService.DeleteBookAsync(Book.Id);
+
+        if (result.Success)
+        {
+            Navigation.NavigateTo("/catalog");
+            return;
+        }
+
+        IsError = true;
+        StatusMessage = result.Message;
     }
 }

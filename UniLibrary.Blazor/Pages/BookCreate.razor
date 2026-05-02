@@ -21,14 +21,14 @@
 {
     <p>Перевірка доступу...</p>
 }
-else if (!isTeacher)
+else if (!canManageBooks)
 {
     <div class="alert alert-danger">
-        Додавати книги та файли може тільки викладач.
+        Додавати книги та файли може тільки викладач або адміністратор.
     </div>
 
     <button class="btn btn-primary" @onclick="GoLogin">
-        Увійти як викладач
+        Увійти як викладач або адміністратор
     </button>
 }
 else
@@ -189,12 +189,12 @@ else
         }
 
     }
-    private bool isTeacher;
+    private bool canManageBooks;
     private bool isCheckingAccess = true;
 
     protected override async Task OnInitializedAsync()
     {
-        isTeacher = await AuthApiService.IsTeacherAsync();
+        canManageBooks = await AuthApiService.IsTeacherOrAdminAsync();
         isCheckingAccess = false;
     }
 

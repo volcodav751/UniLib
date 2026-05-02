@@ -76,6 +76,58 @@ namespace UniLibrary.Blazor.Services
             }
         }
 
+        public async Task<List<UserResponse>> GetUsersAsync()
+        {
+            try
+            {
+                using HttpRequestMessage message = await CreateAuthorizedRequestAsync(
+                    HttpMethod.Get,
+                    "api/auth/users"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new List<UserResponse>();
+                }
+
+                List<UserResponse>? users = await response.Content.ReadFromJsonAsync<List<UserResponse>>();
+
+                return users ?? new List<UserResponse>();
+            }
+            catch
+            {
+                return new List<UserResponse>();
+            }
+        }
+
+        public async Task<(bool Success, string Message)> DeleteUserAsync(int id)
+        {
+            try
+            {
+                using HttpRequestMessage message = await CreateAuthorizedRequestAsync(
+                    HttpMethod.Delete,
+                    $"api/auth/users/{id}"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return (true, "Користувача видалено.");
+                }
+
+                string error = await response.Content.ReadAsStringAsync();
+
+                return (false, string.IsNullOrWhiteSpace(error) ? "Не вдалося видалити користувача." : error);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Помилка: {ex.Message}");
+            }
+        }
+
         public async Task<UserResponse?> GetCurrentUserAsync()
         {
             try
@@ -105,6 +157,20 @@ namespace UniLibrary.Blazor.Services
             return user?.Role == "Teacher";
         }
 
+        public async Task<bool> IsAdminAsync()
+        {
+            UserResponse? user = await GetCurrentUserAsync();
+
+            return user?.Role == "Admin";
+        }
+
+        public async Task<bool> IsTeacherOrAdminAsync()
+        {
+            UserResponse? user = await GetCurrentUserAsync();
+
+            return user?.Role == "Teacher" || user?.Role == "Admin";
+        }
+
         public async Task LogoutAsync()
         {
             await _jsRuntime.InvokeVoidAsync(
@@ -126,6 +192,25 @@ namespace UniLibrary.Blazor.Services
             );
 
             AuthStateChanged?.Invoke();
+        }
+
+        private async Task<HttpRequestMessage> CreateAuthorizedRequestAsync(HttpMethod method, string url)
+        {
+            HttpRequestMessage message = new HttpRequestMessage(method, url);
+
+            UserResponse? currentUser = await GetCurrentUserAsync();
+
+            if (!string.IsNullOrWhiteSpace(currentUser?.Role))
+            {
+                message.Headers.Add("X-User-Role", currentUser.Role);
+            }
+
+            if (currentUser is not null)
+            {
+                message.Headers.Add("X-User-Id", currentUser.Id.ToString());
+            }
+
+            return message;
         }
     }
 }

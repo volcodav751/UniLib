@@ -232,3 +232,28 @@
 .logout-button:hover {
     background: #f3f4f6;
 }
+.guest-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.register-header-button {
+    border: none;
+    background: #2563eb;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.register-header-button:hover {
+    background: #1d4ed8;
+}
+
+.register-header-button:active {
+    transform: scale(0.97);
+}

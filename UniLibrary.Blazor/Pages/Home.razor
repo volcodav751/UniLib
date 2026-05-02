@@ -1,21 +1,182 @@
 @page "/"
 
-<div class="home-page">
-    <div class="home-page__logo">
-        <LibraryLogo />
-    </div>
+@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Services
 
-    <div class="home-page__content">
-        <CatalogLandingSection />
-        <EntranceSection />
-        
-    </div>
-<div class="nav-item px-3">
-    <NavLink class="nav-link" href="books/create">
-        <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Додати книгу
-    </NavLink>
+@inject NavigationManager Navigation
+@inject AuthApiService AuthApiService
+
+<div class="home-new-page">
+
+    <section class="home-hero">
+        <div class="home-hero__content">
+            <p class="home-eyebrow">University Library System</p>
+
+            <h1>Електронна бібліотека університету</h1>
+
+            <p class="home-hero__text">
+                Зручний вебсервіс для пошуку, перегляду та керування навчальними матеріалами,
+                книгами, документами й файлами університетської бібліотеки.
+            </p>
+
+            <div class="home-hero__actions">
+                <button class="home-primary-button" @onclick="GoCatalog">
+                    Перейти до каталогу
+                </button>
+
+                @if (currentUser is null)
+                {
+                    <button class="home-secondary-button" @onclick="GoRegister">
+                        Зареєструватися
+                    </button>
+                }
+                else
+                {
+                    <button class="home-secondary-button" @onclick="GoProfile">
+                        Мій профіль
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="home-hero__card">
+            <div class="home-card-icon">📚</div>
+            <h2>UniLibrary</h2>
+            <p>Швидкий доступ до навчальних ресурсів</p>
+
+            <div class="home-card-stats">
+                <div>
+                    <span>Книги</span>
+                    <strong>50K+</strong>
+                </div>
+
+                <div>
+                    <span>Документи</span>
+                    <strong>25K+</strong>
+                </div>
+
+                <div>
+                    <span>Архіви</span>
+                    <strong>10K+</strong>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="home-role-section">
+        <div class="home-section-title">
+            <h2>Можливості системи</h2>
+            <p>Функціонал залежить від ролі користувача в системі.</p>
+        </div>
+
+        <div class="home-role-grid">
+            <div class="home-role-card">
+                <div class="home-role-icon">🎓</div>
+                <h3>Студент</h3>
+                <p>
+                    Може переглядати каталог, шукати книги та відкривати доступні файли.
+                </p>
+            </div>
+
+            <div class="home-role-card">
+                <div class="home-role-icon">👨‍🏫</div>
+                <h3>Викладач</h3>
+                <p>
+                    Може додавати нові книги, завантажувати файли та редагувати матеріали.
+                </p>
+            </div>
+
+            <div class="home-role-card">
+                <div class="home-role-icon">🛡️</div>
+                <h3>Адміністратор</h3>
+                <p>
+                    Має розширені права: може видаляти книги та керувати користувачами.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="home-actions-section">
+        <div class="home-action-panel">
+            <div>
+                <h2>Почати роботу</h2>
+
+                @if (currentUser is null)
+                {
+                    <p>
+                        Увійдіть або створіть акаунт, щоб отримати доступ до можливостей системи.
+                    </p>
+                }
+                else
+                {
+                    <p>
+                        Ви увійшли як @currentUser.FullName. Ваша роль у системі: @currentUser.Role.
+                    </p>
+                }
+            </div>
+
+            <div class="home-action-buttons">
+                <button class="home-secondary-button" @onclick="GoCatalog">
+                    Каталог
+                </button>
+
+                @if (currentUser is null)
+                {
+                    <button class="home-primary-button" @onclick="GoLogin">
+                        Увійти
+                    </button>
+                }
+                else if (CanManageBooks)
+                {
+                    <button class="home-primary-button" @onclick="GoCreateBook">
+                        Додати книгу
+                    </button>
+                }
+                else
+                {
+                    <button class="home-primary-button" @onclick="GoProfile">
+                        Профіль
+                    </button>
+                }
+            </div>
+        </div>
+    </section>
+
 </div>
-    <div class="home-page__footer">
-        © 2026 University Library System
-    </div>
-</div>
+
+@code {
+    private UserResponse? currentUser;
+
+    private bool CanManageBooks =>
+        currentUser?.Role == "Teacher" || currentUser?.Role == "Admin";
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthApiService.GetCurrentUserAsync();
+    }
+
+    private void GoCatalog()
+    {
+        Navigation.NavigateTo("/catalog");
+    }
+
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void GoRegister()
+    {
+        Navigation.NavigateTo("/register");
+    }
+
+    private void GoProfile()
+    {
+        Navigation.NavigateTo("/profile");
+    }
+
+    private void GoCreateBook()
+    {
+        Navigation.NavigateTo("/books/create");
+    }
+}
