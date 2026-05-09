@@ -1,54 +1,54 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UniLibrary.Api.Data;
 using UniLibrary.Api.Models;
 using UniLibrary.Api.Models.Requests;
-using Microsoft.AspNetCore.Http;
+using UniLibrary.Api.Services;
 
 namespace UniLibrary.Api.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class BooksController : ControllerBase
     {
         private readonly LiteDbContext _context;
+        private readonly PdfPreviewService _pdfPreviewService;
 
-        public BooksController(LiteDbContext context)
+        public BooksController(LiteDbContext context, PdfPreviewService pdfPreviewService)
         {
             _context = context;
+            _pdfPreviewService = pdfPreviewService;
         }
 
         [HttpGet]
         public ActionResult<List<Book>> GetAll()
         {
-            return Ok(_context.Books.FindAll().ToList());
+            return Ok(_context.Books.FindAll().OrderBy(book => book.Title).ToList());
         }
 
         [HttpGet("{id:int}")]
         public ActionResult<Book> GetById(int id)
         {
-            var book = _context.Books.FindById(id);
+            Book? book = _context.Books.FindById(id);
 
             if (book == null)
+            {
                 return NotFound();
+            }
 
             return Ok(book);
         }
 
+        [Authorize(Roles = UserRoles.TeacherOrAdmin)]
         [HttpPost]
         public ActionResult<Book> Create([FromBody] CreateBookRequest request)
         {
-            var accessError = TeacherOrAdminOnly();
-
-            if (accessError is not null)
-            {
-                return accessError;
-            }
-
-            var nextId = _context.Books.Count() == 0
+            int nextId = _context.Books.Count() == 0
                 ? 1
                 : _context.Books.Max(x => x.Id) + 1;
 
-            var book = new Book
+            Book book = new()
             {
                 Id = nextId,
                 Title = request.Title,
@@ -73,20 +73,16 @@ namespace UniLibrary.Api.Controllers
             return CreatedAtAction(nameof(GetById), new { id = book.Id }, book);
         }
 
+        [Authorize(Roles = UserRoles.TeacherOrAdmin)]
         [HttpPut("{id:int}")]
         public ActionResult<Book> Update(int id, [FromBody] CreateBookRequest request)
         {
-            var accessError = TeacherOrAdminOnly();
-
-            if (accessError is not null)
-            {
-                return accessError;
-            }
-
-            var book = _context.Books.FindById(id);
+            Book? book = _context.Books.FindById(id);
 
             if (book == null)
+            {
                 return NotFound();
+            }
 
             book.Title = request.Title;
             book.Author = request.Author;
@@ -108,138 +104,181 @@ namespace UniLibrary.Api.Controllers
             return Ok(book);
         }
 
+        [Authorize(Roles = UserRoles.Admin)]
         [HttpDelete("{id:int}")]
         public IActionResult Delete(int id)
         {
-            var accessError = AdminOnly();
-
-            if (accessError is not null)
-            {
-                return accessError;
-            }
-
-            var book = _context.Books.FindById(id);
+            Book? book = _context.Books.FindById(id);
 
             if (book == null)
-                return NotFound();
-
-            if (!string.IsNullOrWhiteSpace(book.FileId))
             {
-                _context.FileStorage.Delete(book.FileId);
+                return NotFound();
             }
 
+            DeleteStoredFiles(book);
             _context.Books.Delete(id);
 
             return NoContent();
         }
 
+        [Authorize(Roles = UserRoles.TeacherOrAdmin)]
         [HttpPost("{id:int}/file")]
-        public IActionResult UploadFile(int id, [FromForm] UploadBookFileRequest request)
+        public async Task<IActionResult> UploadFile(int id, [FromForm] UploadBookFileRequest request)
         {
-            var accessError = TeacherOrAdminOnly();
-
-            if (accessError is not null)
-            {
-                return accessError;
-            }
-
-            var book = _context.Books.FindById(id);
+            Book? book = _context.Books.FindById(id);
 
             if (book == null)
-                return NotFound("Book not found.");
-
-            if (request.File == null || request.File.Length == 0)
-                return BadRequest("File is empty.");
-
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".txt" };
-            var originalFileName = Path.GetFileName(request.File.FileName);
-            var extension = Path.GetExtension(originalFileName).ToLowerInvariant();
-
-            if (!allowedExtensions.Contains(extension))
-                return BadRequest("Unsupported file type.");
-
-            var storedFileName = $"{Guid.NewGuid()}{extension}";
-            var fileId = $"books/{id}/{storedFileName}";
-
-            if (!string.IsNullOrWhiteSpace(book.FileId))
             {
-                _context.FileStorage.Delete(book.FileId);
+                return NotFound("Book not found.");
             }
 
-            using (var stream = request.File.OpenReadStream())
+            if (request.File == null || request.File.Length == 0)
             {
-                _context.FileStorage.Upload(fileId, storedFileName, stream);
+                return BadRequest("File is empty.");
+            }
+
+            string[] allowedExtensions = [".pdf", ".doc", ".docx", ".txt", ".rtf", ".odt"];
+            string originalFileName = Path.GetFileName(request.File.FileName);
+            string extension = Path.GetExtension(originalFileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+            {
+                return BadRequest("Unsupported file type. Дозволено: PDF, DOC, DOCX, TXT, RTF, ODT.");
+            }
+
+            byte[] originalBytes;
+
+            await using (Stream uploadStream = request.File.OpenReadStream())
+            using (MemoryStream memoryStream = new())
+            {
+                await uploadStream.CopyToAsync(memoryStream);
+                originalBytes = memoryStream.ToArray();
+            }
+
+            DeleteStoredFiles(book);
+
+            string storedFileName = $"{Guid.NewGuid()}{extension}";
+            string fileId = $"books/{id}/original/{storedFileName}";
+
+            using (MemoryStream originalStream = new(originalBytes))
+            {
+                _context.FileStorage.Upload(fileId, storedFileName, originalStream);
             }
 
             book.FileId = fileId;
             book.OriginalFileName = originalFileName;
             book.StoredFileName = storedFileName;
-            book.ContentType = string.IsNullOrWhiteSpace(request.File.ContentType)
-                ? "application/octet-stream"
-                : request.File.ContentType;
+            book.ContentType = ResolveContentType(extension, request.File.ContentType);
             book.FileSizeBytes = request.File.Length;
             book.FileUploadedAt = DateTime.UtcNow;
             book.UpdatedAt = DateTime.UtcNow;
+
+            PdfPreviewResult previewResult = await _pdfPreviewService.CreatePreviewPdfAsync(originalBytes, originalFileName);
+
+            if (previewResult.Success && previewResult.PdfBytes is not null)
+            {
+                if (previewResult.OriginalIsPdf)
+                {
+                    book.PreviewFileId = fileId;
+                    book.PreviewFileName = originalFileName;
+                }
+                else
+                {
+                    string previewFileName = $"{Path.GetFileNameWithoutExtension(originalFileName)}.pdf";
+                    string previewFileId = $"books/{id}/preview/{Guid.NewGuid()}.pdf";
+
+                    using MemoryStream previewStream = new(previewResult.PdfBytes);
+                    _context.FileStorage.Upload(previewFileId, previewFileName, previewStream);
+
+                    book.PreviewFileId = previewFileId;
+                    book.PreviewFileName = previewFileName;
+                }
+
+                book.PreviewContentType = "application/pdf";
+                book.PreviewGeneratedAt = DateTime.UtcNow;
+                book.PreviewStatus = "Ready";
+                book.PreviewError = null;
+            }
+            else
+            {
+                book.PreviewFileId = null;
+                book.PreviewFileName = null;
+                book.PreviewContentType = null;
+                book.PreviewGeneratedAt = null;
+                book.PreviewStatus = "Failed";
+                book.PreviewError = previewResult.ErrorMessage;
+            }
 
             _context.Books.Update(book);
 
             return Ok(new
             {
-                message = "File uploaded successfully.",
+                message = previewResult.Success
+                    ? "File uploaded successfully. PDF preview is ready."
+                    : "File uploaded successfully, but PDF preview was not created.",
+                previewStatus = book.PreviewStatus,
+                previewError = book.PreviewError,
                 book.Id,
                 book.FileId,
                 book.OriginalFileName,
                 book.StoredFileName,
                 book.ContentType,
-                book.FileSizeBytes
+                book.FileSizeBytes,
+                book.PreviewFileId,
+                book.PreviewFileName
             });
         }
 
         [HttpGet("{id:int}/file")]
         public IActionResult DownloadFile(int id)
         {
-            var book = _context.Books.FindById(id);
+            Book? book = _context.Books.FindById(id);
 
             if (book == null)
+            {
                 return NotFound("Book not found.");
+            }
 
             if (string.IsNullOrWhiteSpace(book.FileId))
+            {
                 return NotFound("File not found for this book.");
+            }
 
             var fileInfo = _context.FileStorage.FindById(book.FileId);
 
             if (fileInfo == null)
+            {
                 return NotFound("Stored file not found.");
+            }
 
-            var memoryStream = new MemoryStream();
+            MemoryStream memoryStream = new();
             fileInfo.CopyTo(memoryStream);
             memoryStream.Position = 0;
 
             return File(
                 memoryStream,
                 book.ContentType ?? "application/octet-stream",
-                book.OriginalFileName ?? "downloaded-file");
+                book.OriginalFileName ?? "downloaded-file"
+            );
         }
 
+        [Authorize(Roles = UserRoles.TeacherOrAdmin)]
         [HttpDelete("{id:int}/file")]
         public IActionResult DeleteFile(int id)
         {
-            var accessError = TeacherOrAdminOnly();
-
-            if (accessError is not null)
-            {
-                return accessError;
-            }
-
-            var book = _context.Books.FindById(id);
+            Book? book = _context.Books.FindById(id);
 
             if (book == null)
+            {
                 return NotFound("Book not found.");
+            }
 
             if (string.IsNullOrWhiteSpace(book.FileId))
+            {
                 return NotFound("File not attached.");
+            }
 
-            _context.FileStorage.Delete(book.FileId);
+            DeleteStoredFiles(book);
 
             book.FileId = null;
             book.OriginalFileName = null;
@@ -247,6 +286,12 @@ namespace UniLibrary.Api.Controllers
             book.ContentType = null;
             book.FileSizeBytes = null;
             book.FileUploadedAt = null;
+            book.PreviewFileId = null;
+            book.PreviewFileName = null;
+            book.PreviewContentType = null;
+            book.PreviewGeneratedAt = null;
+            book.PreviewStatus = null;
+            book.PreviewError = null;
             book.UpdatedAt = DateTime.UtcNow;
 
             _context.Books.Update(book);
@@ -257,72 +302,83 @@ namespace UniLibrary.Api.Controllers
         [HttpGet("{id:int}/preview")]
         public IActionResult PreviewFile(int id)
         {
-            var book = _context.Books.FindById(id);
+            Book? book = _context.Books.FindById(id);
 
             if (book == null)
+            {
                 return NotFound("Book not found.");
+            }
 
-            if (string.IsNullOrWhiteSpace(book.FileId))
-                return NotFound("File not attached to this book.");
+            string? previewFileId = book.PreviewFileId;
 
-            var fileInfo = _context.FileStorage.FindById(book.FileId);
+            if (string.IsNullOrWhiteSpace(previewFileId)
+                && IsPdf(book.OriginalFileName, book.ContentType))
+            {
+                previewFileId = book.FileId;
+            }
+
+            if (string.IsNullOrWhiteSpace(previewFileId))
+            {
+                return NotFound(book.PreviewError ?? "PDF preview is not ready for this file.");
+            }
+
+            var fileInfo = _context.FileStorage.FindById(previewFileId);
 
             if (fileInfo == null)
-                return NotFound("File not found in LiteDB FileStorage.");
+            {
+                return NotFound("Preview file not found in LiteDB FileStorage.");
+            }
 
-            var memoryStream = new MemoryStream();
+            MemoryStream memoryStream = new();
             fileInfo.CopyTo(memoryStream);
             memoryStream.Position = 0;
 
-            Response.Headers["Content-Disposition"] =
-                $"inline; filename=\"{book.OriginalFileName ?? "preview"}\"";
+            string fileName = book.PreviewFileName
+                ?? $"{Path.GetFileNameWithoutExtension(book.OriginalFileName ?? "preview")}.pdf";
 
-            return File(memoryStream, book.ContentType ?? "application/octet-stream", book.OriginalFileName);
+            Response.Headers["Content-Disposition"] = $"inline; filename=\"{fileName}\"";
+
+            return File(memoryStream, "application/pdf");
         }
 
-        private string? GetCurrentRole()
+        private void DeleteStoredFiles(Book book)
         {
-            if (!Request.Headers.TryGetValue("X-User-Role", out var roleHeader))
+            if (!string.IsNullOrWhiteSpace(book.FileId))
             {
-                return null;
+                _context.FileStorage.Delete(book.FileId);
             }
 
-            return roleHeader.ToString();
-        }
-
-        private bool IsTeacherOrAdmin()
-        {
-            string? role = GetCurrentRole();
-
-            return string.Equals(role, UserRoles.Teacher, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(role, UserRoles.Admin, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private bool IsAdmin()
-        {
-            string? role = GetCurrentRole();
-
-            return string.Equals(role, UserRoles.Admin, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private ActionResult? TeacherOrAdminOnly()
-        {
-            if (IsTeacherOrAdmin())
+            if (!string.IsNullOrWhiteSpace(book.PreviewFileId)
+                && book.PreviewFileId != book.FileId)
             {
-                return null;
+                _context.FileStorage.Delete(book.PreviewFileId);
+            }
+        }
+
+        private static bool IsPdf(string? fileName, string? contentType)
+        {
+            return string.Equals(contentType, "application/pdf", StringComparison.OrdinalIgnoreCase)
+                || fileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        private static string ResolveContentType(string extension, string? browserContentType)
+        {
+            if (!string.IsNullOrWhiteSpace(browserContentType)
+                && browserContentType != "application/octet-stream")
+            {
+                return browserContentType;
             }
 
-            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки викладачу або адміністратору.");
-        }
-
-        private ActionResult? AdminOnly()
-        {
-            if (IsAdmin())
+            return extension switch
             {
-                return null;
-            }
-
-            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки адміністратору.");
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".txt" => "text/plain",
+                ".rtf" => "application/rtf",
+                ".odt" => "application/vnd.oasis.opendocument.text",
+                _ => "application/octet-stream"
+            };
         }
     }
 }

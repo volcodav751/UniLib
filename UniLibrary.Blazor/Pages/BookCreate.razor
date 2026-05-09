@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using UniLibrary.Blazor.Models.Requests
 @using UniLibrary.Blazor.Services
+
 @inject AuthApiService AuthApiService
 @inject NavigationManager Navigation
 @inject BookApiService BookApiService
@@ -17,6 +18,7 @@
         @StatusMessage
     </div>
 }
+
 @if (isCheckingAccess)
 {
     <p>Перевірка доступу...</p>
@@ -28,7 +30,7 @@ else if (!canManageBooks)
     </div>
 
     <button class="btn btn-primary" @onclick="GoLogin">
-        Увійти як викладач або адміністратор
+        Увійти
     </button>
 }
 else
@@ -102,6 +104,9 @@ else
         <div class="mb-3">
             <label class="form-label">Файл книги</label>
             <InputFile OnChange="HandleFileSelected" />
+            <div class="form-text">
+                Дозволено: PDF, DOC, DOCX, TXT, RTF, ODT. Скачування буде в оригінальному форматі, а передперегляд — у PDF.
+            </div>
             @if (SelectedFile is not null)
             {
                 <div class="form-text">
@@ -115,6 +120,7 @@ else
         </button>
     </EditForm>
 }
+
 @code {
     private CreateBookRequest BookModel = new()
     {
@@ -127,6 +133,14 @@ else
     private string? StatusMessage;
     private bool IsError;
     private bool IsSaving;
+    private bool canManageBooks;
+    private bool isCheckingAccess = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        canManageBooks = await AuthApiService.IsTeacherOrAdminAsync();
+        isCheckingAccess = false;
+    }
 
     private void HandleFileSelected(InputFileChangeEventArgs e)
     {
@@ -150,7 +164,7 @@ else
             if (createdBook is null)
             {
                 IsError = true;
-                StatusMessage = "Не вдалося створити книгу.";
+                StatusMessage = "Не вдалося створити книгу. Перевірте, чи ви увійшли як викладач або адмін.";
                 return;
             }
 
@@ -164,9 +178,14 @@ else
                     StatusMessage = $"Книгу створено, але файл не завантажився. {uploadResult.Message}";
                     return;
                 }
+
+                StatusMessage = $"Книгу успішно додано. {uploadResult.Message}";
+            }
+            else
+            {
+                StatusMessage = "Книгу успішно додано.";
             }
 
-            StatusMessage = "Книгу успішно додано.";
             IsError = false;
 
             BookModel = new CreateBookRequest
@@ -187,15 +206,6 @@ else
         {
             IsSaving = false;
         }
-
-    }
-    private bool canManageBooks;
-    private bool isCheckingAccess = true;
-
-    protected override async Task OnInitializedAsync()
-    {
-        canManageBooks = await AuthApiService.IsTeacherOrAdminAsync();
-        isCheckingAccess = false;
     }
 
     private void GoLogin()

@@ -12,7 +12,7 @@
 
         <div class="register-header">
             <h1>Вхід</h1>
-            <p>Увійдіть у свій акаунт</p>
+            <p>Увійдіть у свій акаунт, щоб отримати JWT-токен доступу</p>
         </div>
 
         <EditForm Model="loginModel" OnValidSubmit="LoginAsync">
@@ -39,6 +39,10 @@
                 @(isLoading ? "Вхід..." : "Увійти")
             </button>
 
+            <button type="button" class="auth-link-button" @onclick="GoRegister">
+                Немає акаунта? Зареєструватися
+            </button>
+
             @if (!string.IsNullOrWhiteSpace(message))
             {
                 <div class="message @(isSuccess ? "success" : "error")">
@@ -47,32 +51,19 @@
             }
         </EditForm>
 
-        <div class="auth-switch">
-            <span>Немає акаунта?</span>
-            <button type="button" class="auth-link-button" @onclick="GoRegister">
-                Зареєструватися
-            </button>
-        </div>
-
     </div>
 </div>
 
 @code {
     private LoginRequest loginModel = new();
-
-    private string message = "";
-    private bool isSuccess = false;
-    private bool isLoading = false;
-
-    private void GoRegister()
-    {
-        Navigation.NavigateTo("/register");
-    }
+    private string message = string.Empty;
+    private bool isSuccess;
+    private bool isLoading;
 
     private async Task LoginAsync()
     {
         isLoading = true;
-        message = "";
+        message = string.Empty;
         isSuccess = false;
 
         var result = await AuthApiService.LoginAsync(loginModel);
@@ -86,5 +77,10 @@
         }
 
         isLoading = false;
+    }
+
+    private void GoRegister()
+    {
+        Navigation.NavigateTo("/register");
     }
 }

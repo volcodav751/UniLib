@@ -1,5 +1,6 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
 using UniLibrary.Api.Data;
 using UniLibrary.Api.Models;
 using UniLibrary.Api.Models.Requests;
@@ -12,17 +13,29 @@ namespace UniLibrary.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly LiteDbContext _context;
+        private readonly JwtTokenService _jwtTokenService;
 
-        public AuthController(LiteDbContext context)
+        public AuthController(LiteDbContext context, JwtTokenService jwtTokenService)
         {
             _context = context;
+            _jwtTokenService = jwtTokenService;
         }
 
+        [AllowAnonymous]
         [HttpPost("register")]
         public IActionResult Register(RegisterRequest request)
         {
+            string fullName = request.FullName.Trim();
             string email = request.Email.Trim().ToLowerInvariant();
-            string role = request.Role.Trim();
+            string requestedRole = request.Role.Trim();
+            bool noAdminsExist = _context.Users.Count(user => user.Role == UserRoles.Admin) == 0;
+
+            string role = noAdminsExist ? UserRoles.Admin : requestedRole;
+
+            if (!noAdminsExist && !UserRoles.CanSelfRegister(role))
+            {
+                return BadRequest("Через звичайну реєстрацію можна створити тільки студента або викладача. Якщо в системі ще немає адміністратора, наступний зареєстрований акаунт автоматично стане Admin.");
+            }
 
             if (!UserRoles.IsValid(role))
             {
@@ -38,7 +51,7 @@ namespace UniLibrary.Api.Controllers
 
             AppUser newUser = new AppUser
             {
-                FullName = request.FullName.Trim(),
+                FullName = fullName,
                 Email = email,
                 PasswordHash = PasswordHasher.HashPassword(request.Password),
                 Role = role,
@@ -47,9 +60,10 @@ namespace UniLibrary.Api.Controllers
 
             _context.Users.Insert(newUser);
 
-            return Ok(ToUserResponse(newUser));
+            return Ok(_jwtTokenService.CreateAuthResponse(newUser));
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public IActionResult Login(LoginRequest request)
         {
@@ -72,38 +86,40 @@ namespace UniLibrary.Api.Controllers
                 return BadRequest("Невірний пароль");
             }
 
-            return Ok(ToUserResponse(user));
+            return Ok(_jwtTokenService.CreateAuthResponse(user));
         }
 
+        [Authorize]
+        [HttpGet("me")]
+        public ActionResult<UserResponse> Me()
+        {
+            AppUser? user = GetCurrentUser();
+
+            if (user is null)
+            {
+                return Unauthorized();
+            }
+
+            return Ok(JwtTokenService.ToUserResponse(user));
+        }
+
+        [Authorize(Roles = UserRoles.Admin)]
         [HttpGet("users")]
         public ActionResult<List<UserResponse>> GetUsers()
         {
-            ActionResult? accessError = AdminOnly();
-
-            if (accessError is not null)
-            {
-                return accessError;
-            }
-
             List<UserResponse> users = _context.Users
                 .FindAll()
                 .OrderBy(user => user.Id)
-                .Select(ToUserResponse)
+                .Select(JwtTokenService.ToUserResponse)
                 .ToList();
 
             return Ok(users);
         }
 
+        [Authorize(Roles = UserRoles.Admin)]
         [HttpDelete("users/{id:int}")]
         public IActionResult DeleteUser(int id)
         {
-            ActionResult? accessError = AdminOnly();
-
-            if (accessError is not null)
-            {
-                return accessError;
-            }
-
             AppUser? user = _context.Users.FindById(id);
 
             if (user == null)
@@ -111,7 +127,9 @@ namespace UniLibrary.Api.Controllers
                 return NotFound("Користувача не знайдено");
             }
 
-            if (TryGetCurrentUserId(out int currentUserId) && currentUserId == id)
+            int? currentUserId = GetCurrentUserId();
+
+            if (currentUserId == id)
             {
                 return BadRequest("Адмін не може видалити власний акаунт під час активної сесії.");
             }
@@ -131,38 +149,18 @@ namespace UniLibrary.Api.Controllers
             return NoContent();
         }
 
-        private ActionResult? AdminOnly()
+        private AppUser? GetCurrentUser()
         {
-            if (Request.Headers.TryGetValue("X-User-Role", out var roleHeader)
-                && string.Equals(roleHeader.ToString(), UserRoles.Admin, StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
+            int? userId = GetCurrentUserId();
 
-            return StatusCode(StatusCodes.Status403Forbidden, "Ця дія доступна тільки адміністратору.");
+            return userId is null ? null : _context.Users.FindById(userId.Value);
         }
 
-        private bool TryGetCurrentUserId(out int currentUserId)
+        private int? GetCurrentUserId()
         {
-            currentUserId = 0;
+            string? userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (!Request.Headers.TryGetValue("X-User-Id", out var userIdHeader))
-            {
-                return false;
-            }
-
-            return int.TryParse(userIdHeader.ToString(), out currentUserId);
-        }
-
-        private static UserResponse ToUserResponse(AppUser user)
-        {
-            return new UserResponse
-            {
-                Id = user.Id,
-                FullName = user.FullName,
-                Email = user.Email,
-                Role = user.Role
-            };
+            return int.TryParse(userIdText, out int userId) ? userId : null;
         }
     }
 }

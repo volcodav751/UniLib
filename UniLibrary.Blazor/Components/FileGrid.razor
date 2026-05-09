@@ -1,4 +1,5 @@
 @using UniLibrary.Blazor.Models
+@using System.IO
 
 <div class="file-grid-wrapper">
     <div class="results-header">
@@ -21,30 +22,29 @@
                 <div class="file-meta-grid">
                     <div class="meta-box">
                         <div class="meta-box__label">Рік</div>
-                        <div class="meta-box__value">@book.PublicationYear </div>
+                        <div class="meta-box__value">@book.PublicationYear</div>
                     </div>
 
                     <div class="meta-box">
                         <div class="meta-box__label">Чи є в наявності</div>
-                        <div class="meta-box__value">@book.IsAvailable </div>
+                        <div class="meta-box__value">@(book.IsAvailable ? "Так" : "Ні")</div>
                     </div>
 
                     <div class="meta-box">
                         <div class="meta-box__label">Формат</div>
-                        <div class="meta-box__value">PDF</div>
+                        <div class="meta-box__value">@GetFileFormat(book)</div>
                     </div>
 
                     <div class="meta-box">
-                        <div class="meta-box__label">Тип</div>
-                        <div class="meta-box__value">Книга</div>
+                        <div class="meta-box__label">Передперегляд</div>
+                        <div class="meta-box__value">@GetPreviewStatus(book)</div>
                     </div>
                 </div>
 
                 <div class="file-card__actions">
                     <a class="btn btn-sm btn-outline-primary" href="/books/@book.Id">
-    Відкрити
-</a>
-                    <button class="icon-button">⬇</button>
+                        Відкрити
+                    </a>
                     <button class="icon-button">🔖</button>
                 </div>
             </div>
@@ -63,4 +63,30 @@
                 b.Title.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ||
                 b.Author.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
             .ToList();
+
+    private string GetFileFormat(Book book)
+    {
+        if (string.IsNullOrWhiteSpace(book.OriginalFileName))
+        {
+            return "Без файлу";
+        }
+
+        string extension = Path.GetExtension(book.OriginalFileName).Trim('.').ToUpperInvariant();
+        return string.IsNullOrWhiteSpace(extension) ? "Файл" : extension;
+    }
+
+    private string GetPreviewStatus(Book book)
+    {
+        if (!string.IsNullOrWhiteSpace(book.PreviewFileId))
+        {
+            return "PDF";
+        }
+
+        if (book.PreviewStatus == "Failed")
+        {
+            return "Помилка";
+        }
+
+        return "—";
+    }
 }

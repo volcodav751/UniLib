@@ -16,7 +16,7 @@
             <div class="profile-page-avatar">@AvatarLetter</div>
             <div>
                 <h1>Профіль користувача</h1>
-                <p>Інформація про поточний акаунт</p>
+                <p>Інформація про поточний акаунт і JWT-сесію</p>
             </div>
         </div>
 
@@ -73,7 +73,7 @@
                 <div class="profile-page-avatar admin-avatar">A</div>
                 <div>
                     <h2>Панель адміністратора</h2>
-                    <p>Адмін може видаляти користувачів</p>
+                    <p>Адмін може переглядати та видаляти користувачів</p>
                 </div>
             </div>
 
@@ -201,15 +201,8 @@
         };
     }
 
-    private void GoLogin()
-    {
-        Navigation.NavigateTo("/login");
-    }
-
-    private void GoCatalog()
-    {
-        Navigation.NavigateTo("/catalog");
-    }
+    private void GoLogin() => Navigation.NavigateTo("/login");
+    private void GoCatalog() => Navigation.NavigateTo("/catalog");
 
     private async Task LogoutAsync()
     {

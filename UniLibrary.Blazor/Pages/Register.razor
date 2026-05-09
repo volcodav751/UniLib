@@ -11,7 +11,7 @@
 
         <div class="register-header">
             <h1>Створення акаунта</h1>
-            <p>Зареєструйтесь, щоб користуватися бібліотекою</p>
+            <p>Після реєстрації сервер одразу видає JWT-токен. Якщо в системі ще немає Admin, новий акаунт автоматично стане адміністратором.</p>
         </div>
 
         <EditForm Model="registerModel" OnValidSubmit="RegisterAsync">
@@ -43,16 +43,29 @@
             </div>
 
             <div class="form-group">
+                <label>Підтвердження пароля</label>
+                <InputText class="form-control"
+                           type="password"
+                           @bind-Value="registerModel.ConfirmPassword"
+                           placeholder="Повторіть пароль" />
+                <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+            </div>
+
+            <div class="form-group">
                 <label>Тип користувача</label>
                 <InputSelect class="form-control" @bind-Value="registerModel.Role">
                     <option value="Student">Учень / студент</option>
                     <option value="Teacher">Викладач</option>
-                    <option value="Admin">Адміністратор</option>
                 </InputSelect>
+                <small class="text-muted">Адмін не створюється через звичайну форму. Якщо в системі ще немає Admin, новий акаунт автоматично стане Admin.</small>
             </div>
 
             <button class="register-button" type="submit" disabled="@isLoading">
                 @(isLoading ? "Реєстрація..." : "Зареєструватися")
+            </button>
+
+            <button type="button" class="auth-link-button" @onclick="GoLogin">
+                Уже є акаунт? Увійти
             </button>
 
             @if (!string.IsNullOrWhiteSpace(message))
@@ -63,32 +76,19 @@
             }
         </EditForm>
 
-        <div class="auth-switch">
-            <span>Вже маєте акаунт?</span>
-            <button type="button" class="auth-link-button" @onclick="GoLogin">
-                Увійти
-            </button>
-        </div>
-
     </div>
 </div>
 
 @code {
-    private RegisterRequest registerModel = new RegisterRequest();
-
-    private string message = "";
-    private bool isSuccess = false;
-    private bool isLoading = false;
-
-    private void GoLogin()
-    {
-        Navigation.NavigateTo("/login");
-    }
+    private RegisterRequest registerModel = new();
+    private string message = string.Empty;
+    private bool isSuccess;
+    private bool isLoading;
 
     private async Task RegisterAsync()
     {
         isLoading = true;
-        message = "";
+        message = string.Empty;
         isSuccess = false;
 
         var result = await AuthApiService.RegisterAsync(registerModel);
@@ -98,9 +98,14 @@
 
         if (result.Success)
         {
-            registerModel = new RegisterRequest();
+            Navigation.NavigateTo("/catalog");
         }
 
         isLoading = false;
+    }
+
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
     }
 }

@@ -11,32 +11,30 @@
 
 <PageTitle>Перегляд книги</PageTitle>
 
-@if (Book is null)
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success")">
+        @statusMessage
+    </div>
+}
+
+@if (isLoading)
 {
     <p>Завантаження...</p>
 }
-else
+else if (Book is null)
 {
-    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-        <div>
-            <h3>@Book.Title</h3>
-            <p class="text-muted mb-0">@Book.Author</p>
-        </div>
-
-        @if (isAdmin)
-        {
-            <button class="btn btn-danger" @onclick="DeleteBookAsync">
-                Видалити книгу
-            </button>
-        }
+    <div class="alert alert-warning">
+        Книгу не знайдено або потрібно увійти в акаунт.
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(StatusMessage))
-    {
-        <div class="alert @(IsError ? "alert-danger" : "alert-success")">
-            @StatusMessage
-        </div>
-    }
+    <button class="btn btn-primary" @onclick="GoLogin">
+        Увійти
+    </button>
+}
+else
+{
+    <h3>@Book.Title</h3>
 
     <p><strong>Автор:</strong> @Book.Author</p>
     <p><strong>Категорія:</strong> @Book.Category</p>
@@ -44,28 +42,47 @@ else
     <p><strong>Рік:</strong> @Book.PublicationYear</p>
     <p><strong>Опис:</strong> @Book.Description</p>
 
+    @if (currentUser?.Role == "Admin")
+    {
+        <div class="mb-3">
+            <button class="btn btn-danger" @onclick="DeleteBookAsync">
+                Видалити книгу
+            </button>
+        </div>
+    }
+
     @if (!string.IsNullOrWhiteSpace(Book.FileId))
     {
         <div class="mb-3">
             <a class="btn btn-primary"
-               href="@BookApiService.GetBookFileUrl(Book.Id)"
+               href="@downloadUrl"
                target="_blank">
-                Скачати файл
+                Скачати оригінальний файл
             </a>
         </div>
 
+        <p class="text-muted">
+            Оригінальний файл: @Book.OriginalFileName
+        </p>
+
         @if (CanPreview(Book))
         {
-            <h4>Передперегляд</h4>
+            <h4>PDF-передперегляд</h4>
 
-            <iframe src="@BookApiService.GetBookPreviewUrl(Book.Id)"
+            <iframe src="@previewUrl"
                     style="width: 100%; height: 800px; border: 1px solid #ccc; border-radius: 8px;">
             </iframe>
+        }
+        else if (!string.IsNullOrWhiteSpace(Book.PreviewError))
+        {
+            <div class="alert alert-warning">
+                PDF-передперегляд не створено: @Book.PreviewError
+            </div>
         }
         else
         {
             <p class="text-muted">
-                Передперегляд для цього типу файлу поки недоступний. Можна скачати файл.
+                PDF-передперегляд для цього файлу ще не готовий. Можна скачати оригінальний файл.
             </p>
         }
     }
@@ -80,22 +97,39 @@ else
     public int Id { get; set; }
 
     private Book? Book;
-    private bool isAdmin;
-    private string? StatusMessage;
-    private bool IsError;
+    private UserResponse? currentUser;
+    private string downloadUrl = string.Empty;
+    private string previewUrl = string.Empty;
+    private bool isLoading = true;
+    private string? statusMessage;
+    private bool isError;
 
     protected override async Task OnInitializedAsync()
     {
+        currentUser = await AuthApiService.GetCurrentUserAsync();
+
+        if (currentUser is null)
+        {
+            isLoading = false;
+            return;
+        }
+
         Book = await BookApiService.GetBookByIdAsync(Id);
-        isAdmin = await AuthApiService.IsAdminAsync();
+
+        if (Book is not null && !string.IsNullOrWhiteSpace(Book.FileId))
+        {
+            downloadUrl = await BookApiService.GetBookFileUrlAsync(Book.Id);
+            previewUrl = await BookApiService.GetBookPreviewUrlAsync(Book.Id);
+        }
+
+        isLoading = false;
     }
 
     private bool CanPreview(Book book)
     {
-        return book.ContentType == "application/pdf"
-            || book.OriginalFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true
-            || book.ContentType == "text/plain"
-            || book.OriginalFileName?.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) == true;
+        return !string.IsNullOrWhiteSpace(book.PreviewFileId)
+            || book.ContentType == "application/pdf"
+            || book.OriginalFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     private async Task DeleteBookAsync()
@@ -117,13 +151,17 @@ else
 
         var result = await BookApiService.DeleteBookAsync(Book.Id);
 
+        statusMessage = result.Message;
+        isError = !result.Success;
+
         if (result.Success)
         {
             Navigation.NavigateTo("/catalog");
-            return;
         }
+    }
 
-        IsError = true;
-        StatusMessage = result.Message;
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
     }
 }

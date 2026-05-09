@@ -19,12 +19,11 @@
         </div>
 
         <div class="header-search">
-            <input
-                type="text"
-                placeholder="Пошук книг, документів, авторів..."
-                @bind="searchText"
-                @bind:event="oninput"
-                @onkeydown="HandleSearchKey" />
+            <input type="text"
+                   placeholder="Пошук книг, документів, авторів..."
+                   @bind="searchText"
+                   @bind:event="oninput"
+                   @onkeydown="HandleSearchKey" />
 
             <button class="search-button" @onclick="Search">
                 Пошук
@@ -61,7 +60,7 @@
                     <div class="profile-avatar">@GetAvatarLetter()</div>
                     <div class="profile-info">
                         <span class="profile-name">@currentUser.FullName</span>
-                        <span class="profile-role">@currentUser.Role</span>
+                        <span class="profile-role">@GetRoleName(currentUser.Role)</span>
                     </div>
                 </button>
 
@@ -75,15 +74,13 @@
 </header>
 
 @code {
-    private string searchText = "";
-
+    private string searchText = string.Empty;
     private UserResponse? currentUser;
     private bool canManageBooks;
 
     protected override async Task OnInitializedAsync()
     {
         AuthApiService.AuthStateChanged += OnAuthStateChanged;
-
         await LoadUserAsync();
     }
 
@@ -124,48 +121,35 @@
         }
     }
 
-    private void GoHome()
-    {
-        Navigation.NavigateTo("/");
-    }
-
-    private void GoLogin()
-    {
-        Navigation.NavigateTo("/login");
-    }
-
-    private void GoRegister()
-    {
-        Navigation.NavigateTo("/register");
-    }
-
-    private void GoProfile()
-    {
-        Navigation.NavigateTo("/profile");
-    }
-
-    private void GoAddBook()
-    {
-        Navigation.NavigateTo("/books/create");
-    }
+    private void GoHome() => Navigation.NavigateTo("/");
+    private void GoLogin() => Navigation.NavigateTo("/login");
+    private void GoRegister() => Navigation.NavigateTo("/register");
+    private void GoProfile() => Navigation.NavigateTo("/profile");
+    private void GoAddBook() => Navigation.NavigateTo("/books/create");
 
     private string GetAvatarLetter()
     {
-        if (string.IsNullOrWhiteSpace(currentUser?.FullName))
-        {
-            return "?";
-        }
+        return string.IsNullOrWhiteSpace(currentUser?.FullName)
+            ? "?"
+            : currentUser.FullName.Trim()[0].ToString().ToUpperInvariant();
+    }
 
-        return currentUser.FullName.Trim()[0].ToString().ToUpperInvariant();
+    private string GetRoleName(string role)
+    {
+        return role switch
+        {
+            "Student" => "Студент",
+            "Teacher" => "Викладач",
+            "Admin" => "Адмін",
+            _ => role
+        };
     }
 
     private async Task LogoutAsync()
     {
         await AuthApiService.LogoutAsync();
-
         currentUser = null;
         canManageBooks = false;
-
         Navigation.NavigateTo("/");
     }
 

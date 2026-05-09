@@ -19,21 +19,47 @@ namespace UniLibrary.Blazor.Services
 
         public async Task<List<Book>> GetBooksAsync()
         {
-            var books = await _httpClient.GetFromJsonAsync<List<Book>>("api/books");
+            using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
+                HttpMethod.Get,
+                "api/books"
+            );
+
+            HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new List<Book>();
+            }
+
+            List<Book>? books = await response.Content.ReadFromJsonAsync<List<Book>>();
             return books ?? new List<Book>();
         }
 
         public async Task<Book?> GetBookByIdAsync(int id)
         {
-            return await _httpClient.GetFromJsonAsync<Book>($"api/books/{id}");
+            using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
+                HttpMethod.Get,
+                $"api/books/{id}"
+            );
+
+            HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<Book>();
         }
 
         public async Task<Book?> CreateBookAsync(CreateBookRequest request)
         {
-            using var message = await CreateRequestWithUserRoleAsync(HttpMethod.Post, "api/books");
+            using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
+                HttpMethod.Post,
+                "api/books"
+            );
 
             message.Content = JsonContent.Create(request);
-
             HttpResponseMessage response = await _httpClient.SendAsync(message);
 
             if (!response.IsSuccessStatusCode)
@@ -48,10 +74,9 @@ namespace UniLibrary.Blazor.Services
         {
             try
             {
-                using var content = new MultipartFormDataContent();
-
-                await using var fileStream = file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
-                using var streamContent = new StreamContent(fileStream);
+                using MultipartFormDataContent content = new();
+                await using Stream fileStream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+                using StreamContent streamContent = new(fileStream);
 
                 if (!string.IsNullOrWhiteSpace(file.ContentType))
                 {
@@ -60,7 +85,7 @@ namespace UniLibrary.Blazor.Services
 
                 content.Add(streamContent, "File", file.Name);
 
-                using var message = await CreateRequestWithUserRoleAsync(
+                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
                     HttpMethod.Post,
                     $"api/books/{id}/file"
                 );
@@ -72,10 +97,15 @@ namespace UniLibrary.Blazor.Services
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    return (false, $"Помилка завантаження: {response.StatusCode}. {responseText}");
+                    return (false, $"Помилка завантаження: {response.StatusCode}. {CleanError(responseText)}");
                 }
 
-                return (true, "Файл успішно завантажено.");
+                if (responseText.Contains("Failed", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (true, "Файл завантажено, але PDF-передперегляд не створено. Перевір LibreOffice на API-комп'ютері.");
+                }
+
+                return (true, "Файл завантажено, PDF-передперегляд готовий.");
             }
             catch (Exception ex)
             {
@@ -83,25 +113,11 @@ namespace UniLibrary.Blazor.Services
             }
         }
 
-        public string GetBookPreviewUrl(int id)
-        {
-            string? baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/');
-
-            return $"{baseUrl}/api/books/{id}/preview";
-        }
-
-        public string GetBookFileUrl(int id)
-        {
-            string? baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/');
-
-            return $"{baseUrl}/api/books/{id}/file";
-        }
-
         public async Task<(bool Success, string Message)> DeleteBookAsync(int id)
         {
             try
             {
-                using HttpRequestMessage message = await CreateRequestWithUserRoleAsync(
+                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
                     HttpMethod.Delete,
                     $"api/books/{id}"
                 );
@@ -113,9 +129,8 @@ namespace UniLibrary.Blazor.Services
                     return (true, "Книгу видалено.");
                 }
 
-                string responseText = await response.Content.ReadAsStringAsync();
-
-                return (false, string.IsNullOrWhiteSpace(responseText) ? "Не вдалося видалити книгу." : responseText);
+                string error = await response.Content.ReadAsStringAsync();
+                return (false, CleanError(error));
             }
             catch (Exception ex)
             {
@@ -123,23 +138,38 @@ namespace UniLibrary.Blazor.Services
             }
         }
 
-        private async Task<HttpRequestMessage> CreateRequestWithUserRoleAsync(HttpMethod method, string url)
+        public async Task<string> GetBookPreviewUrlAsync(int id)
         {
-            var message = new HttpRequestMessage(method, url);
+            return await CreateUrlWithTokenAsync($"api/books/{id}/preview");
+        }
 
-            UserResponse? currentUser = await _authApiService.GetCurrentUserAsync();
+        public async Task<string> GetBookFileUrlAsync(int id)
+        {
+            return await CreateUrlWithTokenAsync($"api/books/{id}/file");
+        }
 
-            if (!string.IsNullOrWhiteSpace(currentUser?.Role))
+        private async Task<string> CreateUrlWithTokenAsync(string relativeUrl)
+        {
+            string baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+            string url = $"{baseUrl}/{relativeUrl}";
+            string? token = await _authApiService.GetTokenAsync();
+
+            if (string.IsNullOrWhiteSpace(token))
             {
-                message.Headers.Add("X-User-Role", currentUser.Role);
+                return url;
             }
 
-            if (currentUser is not null)
+            return $"{url}?access_token={Uri.EscapeDataString(token)}";
+        }
+
+        private static string CleanError(string error)
+        {
+            if (string.IsNullOrWhiteSpace(error))
             {
-                message.Headers.Add("X-User-Id", currentUser.Id.ToString());
+                return "Сталася помилка.";
             }
 
-            return message;
+            return error.Trim('"', ' ', '\n', '\r', '\t');
         }
     }
 }

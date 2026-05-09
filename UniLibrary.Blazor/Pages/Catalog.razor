@@ -1,29 +1,43 @@
 @page "/catalog"
 @using UniLibrary.Blazor.Models
 @inject UniLibrary.Blazor.Services.BookApiService BookApiService
+@inject UniLibrary.Blazor.Services.AuthApiService AuthApiService
+@inject NavigationManager Navigation
 
 <div class="catalog-page">
-    <div class="catalog-layout">
-        <CatalogSidebar Filters="@filters" FiltersChanged="OnFiltersChanged" />
+    @if (currentUser is null && !isLoading)
+    {
+        <div class="catalog-loading">
+            Для перегляду каталогу потрібно увійти в акаунт.
+            <br />
+            <button class="btn btn-primary mt-3" @onclick="GoLogin">Увійти</button>
+        </div>
+    }
+    else
+    {
+        <div class="catalog-layout">
+            <CatalogSidebar Filters="@filters" FiltersChanged="OnFiltersChanged" />
 
-        @if (isLoading)
-        {
-            <div class="catalog-loading">Завантаження книг...</div>
-        }
-        else if (!string.IsNullOrWhiteSpace(errorMessage))
-        {
-            <div class="catalog-loading">@errorMessage</div>
-        }
-        else
-        {
-            <FileGrid Books="@books" SearchQuery="@filters.SearchQuery" />
-        }
+            @if (isLoading)
+            {
+                <div class="catalog-loading">Завантаження книг...</div>
+            }
+            else if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="catalog-loading">@errorMessage</div>
+            }
+            else
+            {
+                <FileGrid Books="@books" SearchQuery="@filters.SearchQuery" />
+            }
 
-        <AccountPanel />
-    </div>
+            <AccountPanel />
+        </div>
+    }
 </div>
 
 @code {
+    private UserResponse? currentUser;
     private List<Book> books = [];
     private CatalogFilters filters = new();
     private bool isLoading = true;
@@ -33,6 +47,13 @@
     {
         try
         {
+            currentUser = await AuthApiService.GetCurrentUserAsync();
+
+            if (currentUser is null)
+            {
+                return;
+            }
+
             books = await BookApiService.GetBooksAsync();
         }
         catch (Exception ex)
@@ -50,5 +71,10 @@
         filters = updatedFilters;
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    private void GoLogin()
+    {
+        Navigation.NavigateTo("/login");
     }
 }

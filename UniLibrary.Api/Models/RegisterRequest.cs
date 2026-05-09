@@ -15,7 +15,11 @@ namespace UniLibrary.Api.Models
         [MinLength(6, ErrorMessage = "Пароль має містити мінімум 6 символів")]
         public string Password { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Підтвердіть пароль")]
+        [Compare(nameof(Password), ErrorMessage = "Паролі не збігаються")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
         [Required]
-        public string Role { get; set; } = "Student";
+        public string Role { get; set; } = UserRoles.Student;
     }
 }

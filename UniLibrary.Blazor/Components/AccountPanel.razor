@@ -1,0 +1,64 @@
+@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Services
+@inject AuthApiService AuthApiService
+@inject NavigationManager Navigation
+
+<div class="account-panel">
+    <div class="panel-title-row">
+        <span class="panel-icon">👤</span>
+        <h3>Акаунт</h3>
+    </div>
+
+    @if (currentUser is null)
+    {
+        <p class="muted-text">Ви не увійшли в систему.</p>
+        <button class="pill-button pill-button--primary" @onclick="GoLogin">
+            <span>Увійти</span>
+            <span>→</span>
+        </button>
+    }
+    else
+    {
+        <p class="muted-text">@currentUser.FullName</p>
+        <p class="accent-text">@GetRoleName(currentUser.Role)</p>
+
+        <div class="pill-list">
+            <button class="pill-button" @onclick="GoProfile">
+                <span>Профіль</span>
+                <span>→</span>
+            </button>
+
+            @if (currentUser.Role == "Teacher" || currentUser.Role == "Admin")
+            {
+                <button class="pill-button pill-button--primary" @onclick="GoCreateBook">
+                    <span>Додати книгу</span>
+                    <span>＋</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private UserResponse? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthApiService.GetCurrentUserAsync();
+    }
+
+    private string GetRoleName(string role)
+    {
+        return role switch
+        {
+            "Student" => "Учень / студент",
+            "Teacher" => "Викладач",
+            "Admin" => "Адміністратор",
+            _ => role
+        };
+    }
+
+    private void GoLogin() => Navigation.NavigateTo("/login");
+    private void GoProfile() => Navigation.NavigateTo("/profile");
+    private void GoCreateBook() => Navigation.NavigateTo("/books/create");
+}

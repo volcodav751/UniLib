@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.JSInterop;
@@ -7,10 +8,16 @@ namespace UniLibrary.Blazor.Services
 {
     public class AuthApiService
     {
-        private const string CurrentUserStorageKey = "unilibrary_current_user";
+        private const string AuthStorageKey = "unilibrary_auth";
+        private const string OldCurrentUserStorageKey = "unilibrary_current_user";
 
         private readonly HttpClient _httpClient;
         private readonly IJSRuntime _jsRuntime;
+
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         public event Action? AuthStateChanged;
 
@@ -25,22 +32,26 @@ namespace UniLibrary.Blazor.Services
             try
             {
                 HttpResponseMessage response = await _httpClient.PostAsJsonAsync("api/auth/register", request);
+                string responseText = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
                 {
-                    UserResponse? user = await response.Content.ReadFromJsonAsync<UserResponse>();
+                    AuthResponse? auth = JsonSerializer.Deserialize<AuthResponse>(responseText, JsonOptions);
 
-                    if (user is not null)
+                    if (auth is not null)
                     {
-                        await SaveCurrentUserAsync(user);
+                        await SaveAuthAsync(auth);
+                        string message = auth.User.Role == "Admin"
+                            ? "Реєстрація успішна. Це перший акаунт, тому він автоматично став адміністратором."
+                            : "Реєстрація успішна";
+
+                        return (true, message, auth.User);
                     }
 
-                    return (true, "Реєстрація успішна", user);
+                    return (false, "Сервер повернув порожню відповідь.", null);
                 }
 
-                string error = await response.Content.ReadAsStringAsync();
-
-                return (false, error, null);
+                return (false, CleanError(responseText), null);
             }
             catch (Exception ex)
             {
@@ -53,27 +64,57 @@ namespace UniLibrary.Blazor.Services
             try
             {
                 HttpResponseMessage response = await _httpClient.PostAsJsonAsync("api/auth/login", request);
+                string responseText = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
                 {
-                    UserResponse? user = await response.Content.ReadFromJsonAsync<UserResponse>();
+                    AuthResponse? auth = JsonSerializer.Deserialize<AuthResponse>(responseText, JsonOptions);
 
-                    if (user is not null)
+                    if (auth is not null)
                     {
-                        await SaveCurrentUserAsync(user);
+                        await SaveAuthAsync(auth);
+                        return (true, "Вхід виконано успішно", auth.User);
                     }
 
-                    return (true, "Вхід виконано успішно", user);
+                    return (false, "Сервер повернув порожню відповідь.", null);
                 }
 
-                string error = await response.Content.ReadAsStringAsync();
-
-                return (false, error, null);
+                return (false, CleanError(responseText), null);
             }
             catch (Exception ex)
             {
                 return (false, $"Помилка підключення до сервера: {ex.Message}", null);
             }
+        }
+
+        public async Task<UserResponse?> GetCurrentUserAsync()
+        {
+            AuthResponse? auth = await GetAuthAsync();
+            return auth?.User;
+        }
+
+        public async Task<string?> GetTokenAsync()
+        {
+            AuthResponse? auth = await GetAuthAsync();
+            return auth?.Token;
+        }
+
+        public async Task<bool> IsTeacherAsync()
+        {
+            UserResponse? user = await GetCurrentUserAsync();
+            return user?.Role == "Teacher";
+        }
+
+        public async Task<bool> IsAdminAsync()
+        {
+            UserResponse? user = await GetCurrentUserAsync();
+            return user?.Role == "Admin";
+        }
+
+        public async Task<bool> IsTeacherOrAdminAsync()
+        {
+            UserResponse? user = await GetCurrentUserAsync();
+            return user?.Role == "Teacher" || user?.Role == "Admin";
         }
 
         public async Task<List<UserResponse>> GetUsersAsync()
@@ -93,7 +134,6 @@ namespace UniLibrary.Blazor.Services
                 }
 
                 List<UserResponse>? users = await response.Content.ReadFromJsonAsync<List<UserResponse>>();
-
                 return users ?? new List<UserResponse>();
             }
             catch
@@ -119,8 +159,7 @@ namespace UniLibrary.Blazor.Services
                 }
 
                 string error = await response.Content.ReadAsStringAsync();
-
-                return (false, string.IsNullOrWhiteSpace(error) ? "Не вдалося видалити користувача." : error);
+                return (false, string.IsNullOrWhiteSpace(error) ? "Не вдалося видалити користувача." : CleanError(error));
             }
             catch (Exception ex)
             {
@@ -128,13 +167,33 @@ namespace UniLibrary.Blazor.Services
             }
         }
 
-        public async Task<UserResponse?> GetCurrentUserAsync()
+        public async Task<HttpRequestMessage> CreateAuthorizedRequestAsync(HttpMethod method, string url)
+        {
+            HttpRequestMessage message = new(method, url);
+            string? token = await GetTokenAsync();
+
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            return message;
+        }
+
+        public async Task LogoutAsync()
+        {
+            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", AuthStorageKey);
+            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", OldCurrentUserStorageKey);
+            AuthStateChanged?.Invoke();
+        }
+
+        private async Task<AuthResponse?> GetAuthAsync()
         {
             try
             {
                 string? json = await _jsRuntime.InvokeAsync<string?>(
                     "localStorage.getItem",
-                    CurrentUserStorageKey
+                    AuthStorageKey
                 );
 
                 if (string.IsNullOrWhiteSpace(json))
@@ -142,7 +201,20 @@ namespace UniLibrary.Blazor.Services
                     return null;
                 }
 
-                return JsonSerializer.Deserialize<UserResponse>(json);
+                AuthResponse? auth = JsonSerializer.Deserialize<AuthResponse>(json, JsonOptions);
+
+                if (auth is null || string.IsNullOrWhiteSpace(auth.Token))
+                {
+                    return null;
+                }
+
+                if (auth.ExpiresAt <= DateTime.UtcNow)
+                {
+                    await LogoutAsync();
+                    return null;
+                }
+
+                return auth;
             }
             catch
             {
@@ -150,67 +222,24 @@ namespace UniLibrary.Blazor.Services
             }
         }
 
-        public async Task<bool> IsTeacherAsync()
+        private async Task SaveAuthAsync(AuthResponse auth)
         {
-            UserResponse? user = await GetCurrentUserAsync();
+            string json = JsonSerializer.Serialize(auth);
 
-            return user?.Role == "Teacher";
-        }
-
-        public async Task<bool> IsAdminAsync()
-        {
-            UserResponse? user = await GetCurrentUserAsync();
-
-            return user?.Role == "Admin";
-        }
-
-        public async Task<bool> IsTeacherOrAdminAsync()
-        {
-            UserResponse? user = await GetCurrentUserAsync();
-
-            return user?.Role == "Teacher" || user?.Role == "Admin";
-        }
-
-        public async Task LogoutAsync()
-        {
-            await _jsRuntime.InvokeVoidAsync(
-                "localStorage.removeItem",
-                CurrentUserStorageKey
-            );
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", AuthStorageKey, json);
+            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", OldCurrentUserStorageKey);
 
             AuthStateChanged?.Invoke();
         }
 
-        private async Task SaveCurrentUserAsync(UserResponse user)
+        private static string CleanError(string error)
         {
-            string json = JsonSerializer.Serialize(user);
-
-            await _jsRuntime.InvokeVoidAsync(
-                "localStorage.setItem",
-                CurrentUserStorageKey,
-                json
-            );
-
-            AuthStateChanged?.Invoke();
-        }
-
-        private async Task<HttpRequestMessage> CreateAuthorizedRequestAsync(HttpMethod method, string url)
-        {
-            HttpRequestMessage message = new HttpRequestMessage(method, url);
-
-            UserResponse? currentUser = await GetCurrentUserAsync();
-
-            if (!string.IsNullOrWhiteSpace(currentUser?.Role))
+            if (string.IsNullOrWhiteSpace(error))
             {
-                message.Headers.Add("X-User-Role", currentUser.Role);
+                return "Сталася помилка.";
             }
 
-            if (currentUser is not null)
-            {
-                message.Headers.Add("X-User-Id", currentUser.Id.ToString());
-            }
-
-            return message;
+            return error.Trim('"', ' ', '\n', '\r', '\t');
         }
     }
 }
