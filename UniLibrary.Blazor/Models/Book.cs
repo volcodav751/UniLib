@@ -15,8 +15,17 @@ public class Book
     public List<string> Tags { get; set; } = new();
     public bool IsAvailable { get; set; }
     public bool IsDigital { get; set; }
+    public int TotalCopies { get; set; } = 1;
+    public int AvailableCopies { get; set; } = 1;
+    public List<BookRental> Rentals { get; set; } = new();
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    public int? RentedByUserId { get; set; }
+    public string? RentedByFullName { get; set; }
+    public string? RentedByEmail { get; set; }
+    public DateTime? RentedAt { get; set; }
+    public DateTime? RentDueAt { get; set; }
 
     public string? FileId { get; set; }
     public string? OriginalFileName { get; set; }

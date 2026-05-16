@@ -27,7 +27,7 @@ namespace UniLibrary.Blazor.Services
             _jsRuntime = jsRuntime;
         }
 
-        public async Task<(bool Success, string Message, UserResponse? User)> RegisterAsync(RegisterRequest request)
+        public async Task<(bool Success, string Message, UserResponse? User, bool RequiresApproval)> RegisterAsync(RegisterRequest request)
         {
             try
             {
@@ -40,22 +40,34 @@ namespace UniLibrary.Blazor.Services
 
                     if (auth is not null)
                     {
-                        await SaveAuthAsync(auth);
-                        string message = auth.User.Role == "Admin"
-                            ? "Реєстрація успішна. Це перший акаунт, тому він автоматично став адміністратором."
-                            : "Реєстрація успішна";
+                        if (auth.RequiresApproval || string.IsNullOrWhiteSpace(auth.Token))
+                        {
+                            string approvalMessage = string.IsNullOrWhiteSpace(auth.Message)
+                                ? "Акаунт викладача створено. Вхід буде доступний після підтвердження адміністратором."
+                                : auth.Message;
 
-                        return (true, message, auth.User);
+                            return (true, approvalMessage, auth.User, true);
+                        }
+
+                        await SaveAuthAsync(auth);
+
+                        string message = !string.IsNullOrWhiteSpace(auth.Message)
+                            ? auth.Message
+                            : auth.User.Role == "Admin"
+                                ? "Реєстрація успішна. Це перший акаунт, тому він автоматично став адміністратором."
+                                : "Реєстрація успішна";
+
+                        return (true, message, auth.User, false);
                     }
 
-                    return (false, "Сервер повернув порожню відповідь.", null);
+                    return (false, "Сервер повернув порожню відповідь.", null, false);
                 }
 
-                return (false, CleanError(responseText), null);
+                return (false, CleanError(responseText), null, false);
             }
             catch (Exception ex)
             {
-                return (false, $"Помилка підключення до сервера: {ex.Message}", null);
+                return (false, $"Помилка підключення до сервера: {ex.Message}", null, false);
             }
         }
 
@@ -166,6 +178,31 @@ namespace UniLibrary.Blazor.Services
                 return (false, $"Помилка: {ex.Message}");
             }
         }
+        public async Task<(bool Success, string Message)> ApproveTeacherAsync(int id)
+        {
+            try
+            {
+                using HttpRequestMessage message = await CreateAuthorizedRequestAsync(
+                    HttpMethod.Put,
+                    $"api/auth/users/{id}/approve-teacher"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return (true, "Акаунт викладача підтверджено.");
+                }
+
+                string error = await response.Content.ReadAsStringAsync();
+                return (false, string.IsNullOrWhiteSpace(error) ? "Не вдалося підтвердити акаунт викладача." : CleanError(error));
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Помилка: {ex.Message}");
+            }
+        }
+
 
         public async Task<HttpRequestMessage> CreateAuthorizedRequestAsync(HttpMethod method, string url)
         {

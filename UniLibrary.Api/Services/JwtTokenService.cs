@@ -63,7 +63,11 @@ namespace UniLibrary.Api.Services
                 Id = user.Id,
                 FullName = user.FullName,
                 Email = user.Email,
-                Role = user.Role
+                Role = user.Role,
+                IsApproved = user.IsApproved,
+                IsApprovalRequired = user.Role == UserRoles.Teacher && !user.IsApproved,
+                ApprovedAt = user.ApprovedAt,
+                ApprovedByFullName = user.ApprovedByFullName ?? string.Empty
             };
         }
     }

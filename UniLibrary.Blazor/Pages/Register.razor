@@ -11,7 +11,7 @@
 
         <div class="register-header">
             <h1>Створення акаунта</h1>
-            <p>Після реєстрації сервер одразу видає JWT-токен. Якщо в системі ще немає Admin, новий акаунт автоматично стане адміністратором.</p>
+            <p>Студентський акаунт активується одразу. Акаунт викладача стане доступним тільки після підтвердження адміністратором. Якщо в системі ще немає Admin, перший акаунт автоматично стане адміністратором.</p>
         </div>
 
         <EditForm Model="registerModel" OnValidSubmit="RegisterAsync">
@@ -57,7 +57,7 @@
                     <option value="Student">Учень / студент</option>
                     <option value="Teacher">Викладач</option>
                 </InputSelect>
-                <small class="text-muted">Адмін не створюється через звичайну форму. Якщо в системі ще немає Admin, новий акаунт автоматично стане Admin.</small>
+                <small class="text-muted">Викладач після реєстрації очікує підтвердження адміністратора. Адмін не створюється через звичайну форму, окрім першого акаунта в системі.</small>
             </div>
 
             <button class="register-button" type="submit" disabled="@isLoading">
@@ -96,7 +96,7 @@
         isSuccess = result.Success;
         message = result.Message;
 
-        if (result.Success)
+        if (result.Success && !result.RequiresApproval)
         {
             Navigation.NavigateTo("/catalog");
         }

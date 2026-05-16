@@ -15,6 +15,14 @@ namespace UniLibrary.Api.Models
 
         public string Role { get; set; } = "Student";
 
+        public bool IsApproved { get; set; } = true;
+
+        public DateTime? ApprovedAt { get; set; }
+
+        public int? ApprovedByUserId { get; set; }
+
+        public string? ApprovedByFullName { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

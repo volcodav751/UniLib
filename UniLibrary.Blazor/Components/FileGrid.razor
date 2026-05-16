@@ -7,64 +7,168 @@
         <p>Знайдено @FilteredBooks.Count книг</p>
     </div>
 
-    <div class="file-grid">
-        @foreach (var book in FilteredBooks)
-        {
-            <div class="file-card">
-                <div class="file-card__top">
-                    <div class="file-icon">📄</div>
-                    <div class="file-card__title-block">
-                        <h3>@book.Title</h3>
-                        <p>@book.Author</p>
+    @if (FilteredBooks.Count == 0)
+    {
+        <div class="catalog-empty-state">
+            За вибраними фільтрами книг не знайдено.
+        </div>
+    }
+    else
+    {
+        <div class="file-grid">
+            @foreach (var book in FilteredBooks)
+            {
+                <div class="file-card">
+                    <div class="file-card__top">
+                        <div class="file-icon">@GetBookIcon(book)</div>
+                        <div class="file-card__title-block">
+                            <h3>@book.Title</h3>
+                            <p>@book.Author</p>
+                        </div>
+                    </div>
+
+                    <div class="file-meta-grid">
+                        <div class="meta-box">
+                            <div class="meta-box__label">Категорія</div>
+                            <div class="meta-box__value">@ShowValue(book.Category)</div>
+                        </div>
+
+                        <div class="meta-box">
+                            <div class="meta-box__label">Мова</div>
+                            <div class="meta-box__value">@ShowValue(book.Language)</div>
+                        </div>
+
+                        <div class="meta-box">
+                            <div class="meta-box__label">Рік</div>
+                            <div class="meta-box__value">@(book.PublicationYear > 0 ? book.PublicationYear.ToString() : "—")</div>
+                        </div>
+
+                        <div class="meta-box">
+                            <div class="meta-box__label">Тип</div>
+                            <div class="meta-box__value">@GetBookType(book)</div>
+                        </div>
+
+                        <div class="meta-box">
+                            <div class="meta-box__label">Копії</div>
+                            <div class="meta-box__value">@GetCopiesText(book)</div>
+                        </div>
+
+                        <div class="meta-box">
+                            <div class="meta-box__label">Статус</div>
+                            <div class="meta-box__value">@GetAvailabilityStatus(book)</div>
+                        </div>
+
+                        <div class="meta-box">
+                            <div class="meta-box__label">Повернення</div>
+                            <div class="meta-box__value">@GetReturnStatus(book)</div>
+                        </div>
+
+                        <div class="meta-box">
+                            <div class="meta-box__label">Передперегляд</div>
+                            <div class="meta-box__value">@GetPreviewStatus(book)</div>
+                        </div>
+                    </div>
+
+                    <div class="file-card__actions">
+                        <a class="btn btn-sm btn-outline-primary" href="/books/@book.Id">
+                            Відкрити
+                        </a>
+                        <button class="icon-button">🔖</button>
                     </div>
                 </div>
-
-                <div class="file-meta-grid">
-                    <div class="meta-box">
-                        <div class="meta-box__label">Рік</div>
-                        <div class="meta-box__value">@book.PublicationYear</div>
-                    </div>
-
-                    <div class="meta-box">
-                        <div class="meta-box__label">Чи є в наявності</div>
-                        <div class="meta-box__value">@(book.IsAvailable ? "Так" : "Ні")</div>
-                    </div>
-
-                    <div class="meta-box">
-                        <div class="meta-box__label">Формат</div>
-                        <div class="meta-box__value">@GetFileFormat(book)</div>
-                    </div>
-
-                    <div class="meta-box">
-                        <div class="meta-box__label">Передперегляд</div>
-                        <div class="meta-box__value">@GetPreviewStatus(book)</div>
-                    </div>
-                </div>
-
-                <div class="file-card__actions">
-                    <a class="btn btn-sm btn-outline-primary" href="/books/@book.Id">
-                        Відкрити
-                    </a>
-                    <button class="icon-button">🔖</button>
-                </div>
-            </div>
-        }
-    </div>
+            }
+        </div>
+    }
 </div>
 
 @code {
     [Parameter] public List<Book> Books { get; set; } = [];
-    [Parameter] public string SearchQuery { get; set; } = string.Empty;
+    [Parameter] public CatalogFilters Filters { get; set; } = new();
 
     private List<Book> FilteredBooks =>
         Books
-            .Where(b =>
-                string.IsNullOrWhiteSpace(SearchQuery) ||
-                b.Title.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ||
-                b.Author.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
+            .Where(MatchesFilters)
+            .OrderBy(book => book.Title)
             .ToList();
 
-    private string GetFileFormat(Book book)
+    private bool MatchesFilters(Book book)
+    {
+        string query = Filters.SearchQuery?.Trim() ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(query) && !MatchesSearch(book, query))
+        {
+            return false;
+        }
+
+        if (Filters.SelectedFormats.Count > 0 && !Filters.SelectedFormats.Contains(GetFileFormat(book)))
+        {
+            return false;
+        }
+
+        if (Filters.SelectedYears.Count > 0 && !Filters.SelectedYears.Contains(book.PublicationYear.ToString()))
+        {
+            return false;
+        }
+
+        if (Filters.SelectedCategories.Count > 0 && !Filters.SelectedCategories.Contains(book.Category))
+        {
+            return false;
+        }
+
+        if (Filters.SelectedLanguages.Count > 0 && !Filters.SelectedLanguages.Contains(book.Language))
+        {
+            return false;
+        }
+
+        if (Filters.OnlyAvailable && !HasAvailableCopies(book))
+        {
+            return false;
+        }
+
+        if (Filters.OnlyDigital && !book.IsDigital)
+        {
+            return false;
+        }
+
+        if (Filters.OnlyPhysical && book.IsDigital)
+        {
+            return false;
+        }
+
+        if (Filters.OnlyRented && !HasActiveOrPendingRentals(book))
+        {
+            return false;
+        }
+
+        if (Filters.OnlyWithFile && string.IsNullOrWhiteSpace(book.FileId))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool MatchesSearch(Book book, string query)
+    {
+        return Contains(book.Title, query)
+            || Contains(book.Author, query)
+            || Contains(book.Isbn, query)
+            || Contains(book.Publisher, query)
+            || Contains(book.Category, query)
+            || Contains(book.Language, query)
+            || Contains(GetBookType(book), query)
+            || Contains(GetAvailabilityStatus(book), query)
+            || Contains(GetReturnStatus(book), query)
+            || (book.Tags?.Any(tag => Contains(tag, query)) ?? false);
+    }
+
+    private static bool Contains(string? source, string query)
+    {
+        return !string.IsNullOrWhiteSpace(source)
+            && source.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetFileFormat(Book book)
     {
         if (string.IsNullOrWhiteSpace(book.OriginalFileName))
         {
@@ -75,7 +179,7 @@
         return string.IsNullOrWhiteSpace(extension) ? "Файл" : extension;
     }
 
-    private string GetPreviewStatus(Book book)
+    private static string GetPreviewStatus(Book book)
     {
         if (!string.IsNullOrWhiteSpace(book.PreviewFileId))
         {
@@ -88,5 +192,75 @@
         }
 
         return "—";
+    }
+
+    private static string GetBookIcon(Book book)
+    {
+        return book.IsDigital ? "💾" : "📚";
+    }
+
+    private static string GetBookType(Book book)
+    {
+        return book.IsDigital ? "Цифрова" : "Фізична";
+    }
+
+    private static string GetCopiesText(Book book)
+    {
+        if (book.IsDigital)
+        {
+            return "—";
+        }
+
+        return $"{book.AvailableCopies} / {book.TotalCopies}";
+    }
+
+    private static string GetAvailabilityStatus(Book book)
+    {
+        if (book.IsDigital)
+        {
+            return "Цифрова";
+        }
+
+        if (book.AvailableCopies > 0)
+        {
+            return "Доступна";
+        }
+
+        return HasActiveOrPendingRentals(book) ? "Всі копії зайняті" : "Недоступна";
+    }
+
+    private static string GetReturnStatus(Book book)
+    {
+        int pendingCount = CountRentalsByStatus(book, RentalStatuses.ReturnPending);
+
+        if (pendingCount > 0)
+        {
+            return $"Очікує підтвердження: {pendingCount}";
+        }
+
+        int activeCount = CountRentalsByStatus(book, RentalStatuses.Active);
+        return activeCount > 0 ? $"В оренді: {activeCount}" : "—";
+    }
+
+    private static bool HasAvailableCopies(Book book)
+    {
+        return book.IsDigital || book.AvailableCopies > 0;
+    }
+
+    private static bool HasActiveOrPendingRentals(Book book)
+    {
+        return CountRentalsByStatus(book, RentalStatuses.Active) > 0
+            || CountRentalsByStatus(book, RentalStatuses.ReturnPending) > 0
+            || book.RentedByUserId.HasValue;
+    }
+
+    private static int CountRentalsByStatus(Book book, string status)
+    {
+        return book.Rentals?.Count(rental => rental.Status == status) ?? 0;
+    }
+
+    private static string ShowValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "—" : value;
     }
 }

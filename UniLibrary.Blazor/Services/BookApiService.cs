@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Components.Forms;
 using UniLibrary.Blazor.Models;
 using UniLibrary.Blazor.Models.Requests;
@@ -10,6 +11,11 @@ namespace UniLibrary.Blazor.Services
     {
         private readonly HttpClient _httpClient;
         private readonly AuthApiService _authApiService;
+
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         public BookApiService(HttpClient httpClient, AuthApiService authApiService)
         {
@@ -33,6 +39,31 @@ namespace UniLibrary.Blazor.Services
 
             List<Book>? books = await response.Content.ReadFromJsonAsync<List<Book>>();
             return books ?? new List<Book>();
+        }
+
+        public async Task<List<Book>> GetReturnRequestsAsync()
+        {
+            try
+            {
+                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
+                    HttpMethod.Get,
+                    "api/books/return-requests"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new List<Book>();
+                }
+
+                List<Book>? books = await response.Content.ReadFromJsonAsync<List<Book>>();
+                return books ?? new List<Book>();
+            }
+            catch
+            {
+                return new List<Book>();
+            }
         }
 
         public async Task<Book?> GetBookByIdAsync(int id)
@@ -111,6 +142,90 @@ namespace UniLibrary.Blazor.Services
             {
                 return (false, $"Помилка: {ex.Message}");
             }
+        }
+
+
+        public async Task<(bool Success, string Message, Book? Book)> RentBookAsync(int id)
+        {
+            try
+            {
+                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
+                    HttpMethod.Post,
+                    $"api/books/{id}/rent"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+                string responseText = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return (false, CleanError(responseText), null);
+                }
+
+                Book? book = JsonSerializer.Deserialize<Book>(responseText, JsonOptions);
+                return (true, "Книгу успішно орендовано.", book);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Помилка: {ex.Message}", null);
+            }
+        }
+
+        public async Task<(bool Success, string Message, Book? Book)> RequestReturnBookAsync(int id)
+        {
+            try
+            {
+                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
+                    HttpMethod.Post,
+                    $"api/books/{id}/return-request"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+                string responseText = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return (false, CleanError(responseText), null);
+                }
+
+                Book? book = JsonSerializer.Deserialize<Book>(responseText, JsonOptions);
+                return (true, "Запит на повернення подано. Книга стане доступною після підтвердження викладачем або адміністратором.", book);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Помилка: {ex.Message}", null);
+            }
+        }
+
+        public async Task<(bool Success, string Message, Book? Book)> ConfirmReturnBookAsync(int bookId, int rentalId)
+        {
+            try
+            {
+                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
+                    HttpMethod.Post,
+                    $"api/books/{bookId}/rentals/{rentalId}/confirm-return"
+                );
+
+                HttpResponseMessage response = await _httpClient.SendAsync(message);
+                string responseText = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return (false, CleanError(responseText), null);
+                }
+
+                Book? book = JsonSerializer.Deserialize<Book>(responseText, JsonOptions);
+                return (true, "Повернення підтверджено. Копія книги знову доступна для оренди.", book);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Помилка: {ex.Message}", null);
+            }
+        }
+
+        public Task<(bool Success, string Message, Book? Book)> ReturnBookAsync(int id)
+        {
+            return RequestReturnBookAsync(id);
         }
 
         public async Task<(bool Success, string Message)> DeleteBookAsync(int id)

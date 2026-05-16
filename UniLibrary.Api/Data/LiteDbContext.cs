@@ -19,6 +19,9 @@ namespace UniLibrary.Api.Data
             Books.EnsureIndex(x => x.Category);
             Books.EnsureIndex(x => x.Isbn);
             Books.EnsureIndex(x => x.PublicationYear);
+            Books.EnsureIndex(x => x.IsDigital);
+            Books.EnsureIndex(x => x.IsAvailable);
+            Books.EnsureIndex(x => x.RentedByUserId);
 
             Users.EnsureIndex(x => x.Email, unique: true);
             Users.EnsureIndex(x => x.Role);

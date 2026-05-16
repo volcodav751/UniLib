@@ -5,6 +5,7 @@
 @using UniLibrary.Blazor.Services
 
 @inject AuthApiService AuthApiService
+@inject BookApiService BookApiService
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
 
@@ -63,8 +64,116 @@
                     Вийти з акаунта
                 </button>
             </div>
+
+            <div class="mt-4">
+                <h3>Мої орендовані книги</h3>
+
+                @if (isLoadingBooks)
+                {
+                    <p class="text-muted">Завантаження орендованих книг...</p>
+                }
+                else if (myRentalRows.Count == 0)
+                {
+                    <p class="text-muted">У вас немає активних оренд або запитів на повернення.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Книга</th>
+                                    <th>Автор</th>
+                                    <th>Повернути до</th>
+                                    <th>Статус</th>
+                                    <th>Дія</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (RentalRow row in myRentalRows)
+                                {
+                                    <tr>
+                                        <td>@row.Book.Title</td>
+                                        <td>@row.Book.Author</td>
+                                        <td>@FormatDate(row.Rental.DueAt)</td>
+                                        <td>@GetRentalStatusName(row.Rental.Status)</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenBook(row.Book.Id)">
+                                                Відкрити
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
         }
     </div>
+
+    @if (CanManageReturns)
+    {
+        <div class="profile-card">
+            <div class="profile-page-header">
+                <div class="profile-page-avatar admin-avatar">↩</div>
+                <div>
+                    <h2>Підтвердження повернення книг</h2>
+                    <p>Книги знову стають доступними тільки після підтвердження викладачем або адміністратором</p>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(returnStatusMessage))
+            {
+                <div class="alert @(returnIsError ? "alert-danger" : "alert-success")">
+                    @returnStatusMessage
+                </div>
+            }
+
+            @if (isLoadingBooks)
+            {
+                <p class="text-muted">Завантаження запитів...</p>
+            }
+            else if (pendingReturnRows.Count == 0)
+            {
+                <p class="text-muted">Немає запитів на підтвердження повернення.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead>
+                            <tr>
+                                <th>Книга</th>
+                                <th>Користувач</th>
+                                <th>Email</th>
+                                <th>Дата запиту</th>
+                                <th>Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (RentalRow row in pendingReturnRows)
+                            {
+                                <tr>
+                                    <td>@row.Book.Title</td>
+                                    <td>@row.Rental.FullName</td>
+                                    <td>@row.Rental.Email</td>
+                                    <td>@FormatDate(row.Rental.ReturnRequestedAt)</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-success"
+                                                disabled="@isReturnActionBusy"
+                                                @onclick="() => ConfirmReturnAsync(row.Book.Id, row.Rental.RentalId)">
+                                            Підтвердити повернення
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
 
     @if (currentUser?.Role == "Admin")
     {
@@ -73,7 +182,7 @@
                 <div class="profile-page-avatar admin-avatar">A</div>
                 <div>
                     <h2>Панель адміністратора</h2>
-                    <p>Адмін може переглядати та видаляти користувачів</p>
+                    <p>Адмін може підтверджувати акаунти викладачів, переглядати та видаляти користувачів</p>
                 </div>
             </div>
 
@@ -102,6 +211,7 @@
                                 <th>Ім'я</th>
                                 <th>Email</th>
                                 <th>Роль</th>
+                                <th>Статус</th>
                                 <th>Дія</th>
                             </tr>
                         </thead>
@@ -113,12 +223,24 @@
                                     <td>@user.FullName</td>
                                     <td>@user.Email</td>
                                     <td>@GetRoleName(user.Role)</td>
+                                    <td>@GetUserApprovalStatus(user)</td>
                                     <td>
-                                        <button class="btn btn-sm btn-danger"
-                                                disabled="@(user.Id == currentUser.Id)"
-                                                @onclick="() => DeleteUserAsync(user)">
-                                            Видалити
-                                        </button>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            @if (user.Role == "Teacher" && !user.IsApproved)
+                                            {
+                                                <button class="btn btn-sm btn-success"
+                                                        disabled="@isUserActionBusy"
+                                                        @onclick="() => ApproveTeacherAsync(user)">
+                                                    Підтвердити
+                                                </button>
+                                            }
+
+                                            <button class="btn btn-sm btn-danger"
+                                                    disabled="@(user.Id == currentUser.Id || isUserActionBusy)"
+                                                    @onclick="() => DeleteUserAsync(user)">
+                                                Видалити
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -133,9 +255,19 @@
 @code {
     private UserResponse? currentUser;
     private List<UserResponse> users = new();
+    private List<Book> books = new();
+    private List<RentalRow> myRentalRows = new();
+    private List<RentalRow> pendingReturnRows = new();
     private bool isLoadingUsers;
+    private bool isLoadingBooks;
+    private bool isReturnActionBusy;
+    private bool isUserActionBusy;
     private string? statusMessage;
     private bool isError;
+    private string? returnStatusMessage;
+    private bool returnIsError;
+
+    private bool CanManageReturns => currentUser?.Role == "Teacher" || currentUser?.Role == "Admin";
 
     private string AvatarLetter
     {
@@ -154,6 +286,11 @@
     {
         currentUser = await AuthApiService.GetCurrentUserAsync();
 
+        if (currentUser is not null)
+        {
+            await LoadBooksAndRentalsAsync();
+        }
+
         if (currentUser?.Role == "Admin")
         {
             await LoadUsersAsync();
@@ -165,6 +302,93 @@
         isLoadingUsers = true;
         users = await AuthApiService.GetUsersAsync();
         isLoadingUsers = false;
+    }
+
+    private async Task LoadBooksAndRentalsAsync()
+    {
+        if (currentUser is null)
+        {
+            return;
+        }
+
+        isLoadingBooks = true;
+        books = await BookApiService.GetBooksAsync();
+
+        myRentalRows = books
+            .SelectMany(book => book.Rentals
+                .Where(rental => rental.UserId == currentUser.Id
+                    && (IsActiveRental(rental) || IsReturnPendingRental(rental)))
+                .Select(rental => new RentalRow(book, rental)))
+            .OrderBy(row => row.Rental.DueAt)
+            .ToList();
+
+        if (CanManageReturns)
+        {
+            List<Book> booksWithReturnRequests = await BookApiService.GetReturnRequestsAsync();
+
+            pendingReturnRows = booksWithReturnRequests
+                .SelectMany(book => book.Rentals
+                    .Where(IsReturnPendingRental)
+                    .Select(rental => new RentalRow(book, rental)))
+                .OrderBy(row => row.Rental.ReturnRequestedAt ?? DateTime.MaxValue)
+                .ToList();
+        }
+        else
+        {
+            pendingReturnRows.Clear();
+        }
+
+        isLoadingBooks = false;
+    }
+
+    private async Task ConfirmReturnAsync(int bookId, int rentalId)
+    {
+        bool confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            "Підтвердити повернення книги?"
+        );
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        isReturnActionBusy = true;
+        var result = await BookApiService.ConfirmReturnBookAsync(bookId, rentalId);
+        isReturnActionBusy = false;
+
+        returnStatusMessage = result.Message;
+        returnIsError = !result.Success;
+
+        if (result.Success)
+        {
+            await LoadBooksAndRentalsAsync();
+        }
+    }
+
+    private async Task ApproveTeacherAsync(UserResponse user)
+    {
+        bool confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            $"Підтвердити акаунт викладача {user.FullName} ({user.Email})?"
+        );
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        isUserActionBusy = true;
+        var result = await AuthApiService.ApproveTeacherAsync(user.Id);
+        isUserActionBusy = false;
+
+        statusMessage = result.Message;
+        isError = !result.Success;
+
+        if (result.Success)
+        {
+            await LoadUsersAsync();
+        }
     }
 
     private async Task DeleteUserAsync(UserResponse user)
@@ -179,7 +403,9 @@
             return;
         }
 
+        isUserActionBusy = true;
         var result = await AuthApiService.DeleteUserAsync(user.Id);
+        isUserActionBusy = false;
 
         statusMessage = result.Message;
         isError = !result.Success;
@@ -201,12 +427,72 @@
         };
     }
 
+    private string GetUserApprovalStatus(UserResponse user)
+    {
+        if (user.Role == "Teacher" && !user.IsApproved)
+        {
+            return "Очікує підтвердження";
+        }
+
+        if (user.Role == "Teacher" && user.IsApproved && user.ApprovedAt.HasValue)
+        {
+            return $"Підтверджено {FormatDate(user.ApprovedAt)}";
+        }
+
+        return "Активний";
+    }
+
+    private static string GetRentalStatusName(string status)
+    {
+        if (IsActiveRentalStatus(status))
+        {
+            return "В оренді";
+        }
+
+        if (IsReturnPendingStatus(status))
+        {
+            return "Очікує підтвердження повернення";
+        }
+
+        if (string.Equals(status, RentalStatuses.Returned, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Повернено";
+        }
+
+        return status;
+    }
+
+    private static bool IsActiveRental(BookRental rental) => IsActiveRentalStatus(rental.Status);
+
+    private static bool IsReturnPendingRental(BookRental rental) => IsReturnPendingStatus(rental.Status);
+
+    private static bool IsActiveRentalStatus(string status)
+    {
+        return string.Equals(status, RentalStatuses.Active, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsReturnPendingStatus(string status)
+    {
+        return string.Equals(status, RentalStatuses.ReturnPending, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "PendingReturn", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "ReturnRequested", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Pending", StringComparison.OrdinalIgnoreCase);
+    }
+
     private void GoLogin() => Navigation.NavigateTo("/login");
     private void GoCatalog() => Navigation.NavigateTo("/catalog");
+    private void OpenBook(int id) => Navigation.NavigateTo($"/books/{id}");
+
+    private static string FormatDate(DateTime? value)
+    {
+        return value.HasValue ? value.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—";
+    }
 
     private async Task LogoutAsync()
     {
         await AuthApiService.LogoutAsync();
         Navigation.NavigateTo("/");
     }
+
+    private record RentalRow(Book Book, BookRental Rental);
 }

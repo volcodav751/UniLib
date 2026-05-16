@@ -18,8 +18,17 @@ namespace UniLibrary.Api.Models
         public List<string> Tags { get; set; } = new();
         public bool IsAvailable { get; set; } = true;
         public bool IsDigital { get; set; } = false;
+        public int TotalCopies { get; set; } = 1;
+        public int AvailableCopies { get; set; } = 1;
+        public List<BookRental> Rentals { get; set; } = new();
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public int? RentedByUserId { get; set; }
+        public string? RentedByFullName { get; set; }
+        public string? RentedByEmail { get; set; }
+        public DateTime? RentedAt { get; set; }
+        public DateTime? RentDueAt { get; set; }
 
         public string? FileId { get; set; }
         public string? OriginalFileName { get; set; }

@@ -26,5 +26,7 @@ public class CreateBookRequest
 
     public bool IsDigital { get; set; } = false;
 
+    public int TotalCopies { get; set; } = 1;
+
     public string? CoverImageUrl { get; set; }
 }

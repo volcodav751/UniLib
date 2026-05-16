@@ -16,7 +16,7 @@
     else
     {
         <div class="catalog-layout">
-            <CatalogSidebar Filters="@filters" FiltersChanged="OnFiltersChanged" />
+            <CatalogSidebar Books="@books" Filters="@filters" FiltersChanged="OnFiltersChanged" />
 
             @if (isLoading)
             {
@@ -28,7 +28,7 @@
             }
             else
             {
-                <FileGrid Books="@books" SearchQuery="@filters.SearchQuery" />
+                <FileGrid Books="@books" Filters="@filters" />
             }
 
             <AccountPanel />

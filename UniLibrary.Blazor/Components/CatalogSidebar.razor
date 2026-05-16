@@ -1,4 +1,5 @@
 @using UniLibrary.Blazor.Models
+@using System.IO
 
 <div class="catalog-sidebar">
     <div class="sidebar-section">
@@ -9,82 +10,195 @@
 
         <div class="search-box">
             <span class="search-box__icon">🔍</span>
-            <input placeholder="Введіть запит..." value="@Filters.SearchQuery" @oninput="OnSearchChanged" />
+            <input placeholder="Назва, автор, ISBN або тег..." value="@Filters.SearchQuery" @oninput="OnSearchChanged" />
         </div>
     </div>
 
-    <div class="sidebar-section">
-        <div class="panel-title-row">
-            <span class="panel-icon">⚙</span>
-            <h3>Тип файлу</h3>
+    @if (Filters.HasAnyActiveFilter)
+    {
+        <div class="sidebar-section sidebar-section--compact">
+            <button class="filter-reset-button" @onclick="ResetFilters">
+                Скинути всі фільтри
+            </button>
         </div>
+    }
 
-        <div class="sidebar-list">
-            @foreach (var type in fileTypes)
-            {
-                <button class="filter-pill @(Filters.SelectedTypes.Contains(type.Id) ? "filter-pill--active" : "")"
-                        @onclick="@(() => ToggleType(type.Id))">
-                    <span>@type.Icon @type.Label</span>
-                    <span>@type.Count</span>
-                </button>
-            }
-        </div>
-    </div>
+    @if (FormatOptions.Count > 0)
+    {
+        <div class="sidebar-section">
+            <div class="panel-title-row">
+                <span class="panel-icon">📄</span>
+                <h3>Формат файлу</h3>
+            </div>
 
-    <div class="sidebar-section">
-        <h3>Рік публікації</h3>
-        <div class="chips-wrap">
-            @foreach (var year in years)
-            {
-                <button class="chip @(Filters.SelectedYears.Contains(year) ? "chip--active" : "")"
-                        @onclick="@(() => ToggleYear(year))">
-                    @year
-                </button>
-            }
+            <div class="sidebar-list">
+                @foreach (var format in FormatOptions)
+                {
+                    <button class="filter-pill @(Filters.SelectedFormats.Contains(format.Value) ? "filter-pill--active" : "")"
+                            @onclick="@(() => ToggleFormat(format.Value))">
+                        <span>@format.Value</span>
+                        <span>@format.Count</span>
+                    </button>
+                }
+            </div>
         </div>
-    </div>
+    }
 
-    <div class="sidebar-section">
-        <h3>Категорії</h3>
-        <div class="sidebar-list">
-            @foreach (var category in categories)
-            {
-                <button
-                    class="filter-pill filter-pill--left @(Filters.SelectedCategories.Contains(category) ? "filter-pill--active" : "")"
-                    @onclick="@(() => ToggleCategory(category))">
-                    @category
-                </button>
-            }
+    @if (CategoryOptions.Count > 0)
+    {
+        <div class="sidebar-section">
+            <h3>Категорія</h3>
+            <div class="sidebar-list">
+                @foreach (var category in CategoryOptions)
+                {
+                    <button class="filter-pill @(Filters.SelectedCategories.Contains(category.Value) ? "filter-pill--active" : "")"
+                            @onclick="@(() => ToggleCategory(category.Value))">
+                        <span>@category.Value</span>
+                        <span>@category.Count</span>
+                    </button>
+                }
+            </div>
         </div>
-    </div>
+    }
+
+    @if (LanguageOptions.Count > 0)
+    {
+        <div class="sidebar-section">
+            <h3>Мова</h3>
+            <div class="sidebar-list">
+                @foreach (var language in LanguageOptions)
+                {
+                    <button class="filter-pill @(Filters.SelectedLanguages.Contains(language.Value) ? "filter-pill--active" : "")"
+                            @onclick="@(() => ToggleLanguage(language.Value))">
+                        <span>@language.Value</span>
+                        <span>@language.Count</span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    @if (YearOptions.Count > 0)
+    {
+        <div class="sidebar-section">
+            <h3>Рік публікації</h3>
+            <div class="chips-wrap">
+                @foreach (var year in YearOptions)
+                {
+                    <button class="chip @(Filters.SelectedYears.Contains(year) ? "chip--active" : "")"
+                            @onclick="@(() => ToggleYear(year))">
+                        @year
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    @if (ShowAvailabilitySection)
+    {
+        <div class="sidebar-section">
+            <h3>Доступність та тип</h3>
+            <div class="sidebar-list">
+                @if (AvailableCount > 0 && AvailableCount < Books.Count)
+                {
+                    <button class="filter-pill @(Filters.OnlyAvailable ? "filter-pill--active" : "")"
+                            @onclick="ToggleAvailable">
+                        <span>Тільки доступні</span>
+                        <span>@AvailableCount</span>
+                    </button>
+                }
+
+                @if (PhysicalCount > 0)
+                {
+                    <button class="filter-pill @(Filters.OnlyPhysical ? "filter-pill--active" : "")"
+                            @onclick="TogglePhysical">
+                        <span>Тільки фізичні</span>
+                        <span>@PhysicalCount</span>
+                    </button>
+                }
+
+                @if (DigitalCount > 0)
+                {
+                    <button class="filter-pill @(Filters.OnlyDigital ? "filter-pill--active" : "")"
+                            @onclick="ToggleDigital">
+                        <span>Тільки цифрові</span>
+                        <span>@DigitalCount</span>
+                    </button>
+                }
+
+                @if (RentedCount > 0)
+                {
+                    <button class="filter-pill @(Filters.OnlyRented ? "filter-pill--active" : "")"
+                            @onclick="ToggleRented">
+                        <span>В оренді / очікує повернення</span>
+                        <span>@RentedCount</span>
+                    </button>
+                }
+
+                @if (WithFileCount > 0)
+                {
+                    <button class="filter-pill @(Filters.OnlyWithFile ? "filter-pill--active" : "")"
+                            @onclick="ToggleWithFile">
+                        <span>З прикріпленим файлом</span>
+                        <span>@WithFileCount</span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 @code {
+    [Parameter] public List<Book> Books { get; set; } = [];
     [Parameter] public CatalogFilters Filters { get; set; } = new();
     [Parameter] public EventCallback<CatalogFilters> FiltersChanged { get; set; }
 
-    private readonly List<(string Id, string Label, string Icon, int Count)> fileTypes =
-    [
-        ("books", "Книги", "📘", 45230),
-        ("articles", "Статті", "📄", 12450),
-        ("videos", "Відео", "🎬", 3200),
-        ("audio", "Аудіо", "🎧", 1850),
-        ("images", "Зображення", "🖼", 5670)
-    ];
+    private List<(string Value, int Count)> FormatOptions =>
+        Books
+            .Select(GetFileFormat)
+            .Where(format => !string.IsNullOrWhiteSpace(format) && format != "Без файлу")
+            .GroupBy(format => format)
+            .Select(group => (Value: group.Key, Count: group.Count()))
+            .OrderBy(item => item.Value)
+            .ToList();
 
-    private readonly List<string> years = ["2026", "2025", "2024", "2023", "2022", "2021", "2020"];
+    private List<(string Value, int Count)> CategoryOptions =>
+        Books
+            .Where(book => !string.IsNullOrWhiteSpace(book.Category))
+            .GroupBy(book => book.Category.Trim())
+            .Select(group => (Value: group.Key, Count: group.Count()))
+            .OrderBy(item => item.Value)
+            .ToList();
 
-    private readonly List<string> categories =
-    [
-        "Математика",
-        "Фізика",
-        "Хімія",
-        "Біологія",
-        "Історія",
-        "Література",
-        "Мистецтво",
-        "Комп'ютерні науки"
-    ];
+    private List<(string Value, int Count)> LanguageOptions =>
+        Books
+            .Where(book => !string.IsNullOrWhiteSpace(book.Language))
+            .GroupBy(book => book.Language.Trim())
+            .Select(group => (Value: group.Key, Count: group.Count()))
+            .OrderBy(item => item.Value)
+            .ToList();
+
+    private List<string> YearOptions =>
+        Books
+            .Where(book => book.PublicationYear > 0)
+            .Select(book => book.PublicationYear.ToString())
+            .Distinct()
+            .OrderByDescending(year => year)
+            .ToList();
+
+    private int AvailableCount => Books.Count(book => book.IsDigital || book.AvailableCopies > 0);
+    private int DigitalCount => Books.Count(book => book.IsDigital);
+    private int PhysicalCount => Books.Count(book => !book.IsDigital);
+    private int RentedCount => Books.Count(book => book.Rentals?.Any(rental => rental.Status == RentalStatuses.Active || rental.Status == RentalStatuses.ReturnPending) == true || book.RentedByUserId.HasValue);
+    private int WithFileCount => Books.Count(book => !string.IsNullOrWhiteSpace(book.FileId));
+
+    private bool ShowAvailabilitySection =>
+        Books.Count > 0
+        && ((AvailableCount > 0 && AvailableCount < Books.Count)
+            || PhysicalCount > 0
+            || DigitalCount > 0
+            || RentedCount > 0
+            || WithFileCount > 0);
 
     private async Task OnSearchChanged(ChangeEventArgs e)
     {
@@ -92,9 +206,9 @@
         await FiltersChanged.InvokeAsync(Filters);
     }
 
-    private async Task ToggleType(string type)
+    private async Task ToggleFormat(string format)
     {
-        Toggle(Filters.SelectedTypes, type);
+        Toggle(Filters.SelectedFormats, format);
         await FiltersChanged.InvokeAsync(Filters);
     }
 
@@ -110,11 +224,88 @@
         await FiltersChanged.InvokeAsync(Filters);
     }
 
+    private async Task ToggleLanguage(string language)
+    {
+        Toggle(Filters.SelectedLanguages, language);
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ToggleAvailable()
+    {
+        Filters.OnlyAvailable = !Filters.OnlyAvailable;
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ToggleDigital()
+    {
+        Filters.OnlyDigital = !Filters.OnlyDigital;
+
+        if (Filters.OnlyDigital)
+        {
+            Filters.OnlyPhysical = false;
+            Filters.OnlyRented = false;
+        }
+
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task TogglePhysical()
+    {
+        Filters.OnlyPhysical = !Filters.OnlyPhysical;
+
+        if (Filters.OnlyPhysical)
+        {
+            Filters.OnlyDigital = false;
+        }
+
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ToggleRented()
+    {
+        Filters.OnlyRented = !Filters.OnlyRented;
+
+        if (Filters.OnlyRented)
+        {
+            Filters.OnlyDigital = false;
+            Filters.OnlyPhysical = true;
+        }
+
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ToggleWithFile()
+    {
+        Filters.OnlyWithFile = !Filters.OnlyWithFile;
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
+    private async Task ResetFilters()
+    {
+        Filters = new CatalogFilters();
+        await FiltersChanged.InvokeAsync(Filters);
+    }
+
     private static void Toggle(List<string> list, string value)
     {
         if (list.Contains(value))
+        {
             list.Remove(value);
+        }
         else
+        {
             list.Add(value);
+        }
+    }
+
+    private static string GetFileFormat(Book book)
+    {
+        if (string.IsNullOrWhiteSpace(book.OriginalFileName))
+        {
+            return "Без файлу";
+        }
+
+        string extension = Path.GetExtension(book.OriginalFileName).Trim('.').ToUpperInvariant();
+        return string.IsNullOrWhiteSpace(extension) ? "Файл" : extension;
     }
 }
