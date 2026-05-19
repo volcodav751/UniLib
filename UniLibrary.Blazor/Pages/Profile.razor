@@ -2,6 +2,7 @@
 
 @using Microsoft.JSInterop
 @using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Models.ViewModels
 @using UniLibrary.Blazor.Services
 
 @inject AuthApiService AuthApiService
@@ -23,13 +24,8 @@
 
         @if (currentUser is null)
         {
-            <div class="alert alert-warning">
-                Ви ще не увійшли в акаунт.
-            </div>
-
-            <button class="btn btn-primary" @onclick="GoLogin">
-                Перейти до входу
-            </button>
+            <div class="alert alert-warning">Ви ще не увійшли в акаунт.</div>
+            <button class="btn btn-primary" @onclick="GoLogin">Перейти до входу</button>
         }
         else
         {
@@ -46,7 +42,7 @@
 
                 <div class="profile-info-item">
                     <span>Роль</span>
-                    <strong>@GetRoleName(currentUser.Role)</strong>
+                    <strong>@UserRoleHelper.GetDisplayName(currentUser.Role)</strong>
                 </div>
 
                 <div class="profile-info-item">
@@ -56,126 +52,59 @@
             </div>
 
             <div class="profile-actions">
-                <button class="btn btn-outline-primary" @onclick="GoCatalog">
-                    Перейти до каталогу
-                </button>
+                <button class="btn btn-outline-primary" @onclick="GoCatalog">Перейти до каталогу</button>
 
-                <button class="btn btn-outline-danger" @onclick="LogoutAsync">
-                    Вийти з акаунта
-                </button>
+                @if (CanManageRentals)
+                {
+                    <button class="btn btn-outline-success" @onclick="GoRentals">Видача / повернення книг</button>
+                }
+
+                <button class="btn btn-outline-danger" @onclick="LogoutAsync">Вийти з акаунта</button>
             </div>
 
             <div class="mt-4">
-                <h3>Мої орендовані книги</h3>
+                <h3>Мої видані книги</h3>
 
                 @if (isLoadingBooks)
                 {
-                    <p class="text-muted">Завантаження орендованих книг...</p>
-                }
-                else if (myRentalRows.Count == 0)
-                {
-                    <p class="text-muted">У вас немає активних оренд або запитів на повернення.</p>
+                    <p class="text-muted">Завантаження виданих книг...</p>
                 }
                 else
                 {
-                    <div class="table-responsive">
-                        <table class="table table-bordered align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Книга</th>
-                                    <th>Автор</th>
-                                    <th>Повернути до</th>
-                                    <th>Статус</th>
-                                    <th>Дія</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (RentalRow row in myRentalRows)
-                                {
-                                    <tr>
-                                        <td>@row.Book.Title</td>
-                                        <td>@row.Book.Author</td>
-                                        <td>@FormatDate(row.Rental.DueAt)</td>
-                                        <td>@GetRentalStatusName(row.Rental.Status)</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenBook(row.Book.Id)">
-                                                Відкрити
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                    <UserRentalsTable Rows="myRentalRows" OpenBook="OpenBook" />
                 }
             </div>
         }
     </div>
 
-    @if (CanManageReturns)
+    @if (CanManageRentals)
     {
         <div class="profile-card">
             <div class="profile-page-header">
                 <div class="profile-page-avatar admin-avatar">↩</div>
                 <div>
-                    <h2>Підтвердження повернення книг</h2>
-                    <p>Книги знову стають доступними тільки після підтвердження викладачем або адміністратором</p>
+                    <h2>Службова видача та повернення книг</h2>
+                    <p>Працівник бібліотеки, викладач або адміністратор записує видачу і фіксує фактичне повернення книги</p>
                 </div>
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(returnStatusMessage))
-            {
-                <div class="alert @(returnIsError ? "alert-danger" : "alert-success")">
-                    @returnStatusMessage
-                </div>
-            }
+            <StatusAlert Message="@returnStatusMessage" IsError="@returnIsError" />
 
             @if (isLoadingBooks)
             {
-                <p class="text-muted">Завантаження запитів...</p>
-            }
-            else if (pendingReturnRows.Count == 0)
-            {
-                <p class="text-muted">Немає запитів на підтвердження повернення.</p>
+                <p class="text-muted">Завантаження активних видач...</p>
             }
             else
             {
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle">
-                        <thead>
-                            <tr>
-                                <th>Книга</th>
-                                <th>Користувач</th>
-                                <th>Email</th>
-                                <th>Дата запиту</th>
-                                <th>Дія</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (RentalRow row in pendingReturnRows)
-                            {
-                                <tr>
-                                    <td>@row.Book.Title</td>
-                                    <td>@row.Rental.FullName</td>
-                                    <td>@row.Rental.Email</td>
-                                    <td>@FormatDate(row.Rental.ReturnRequestedAt)</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-success"
-                                                disabled="@isReturnActionBusy"
-                                                @onclick="() => ConfirmReturnAsync(row.Book.Id, row.Rental.RentalId)">
-                                            Підтвердити повернення
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                <ActiveRentalsTable Rows="activeRentalRows"
+                                    IsBusy="isReturnActionBusy"
+                                    EmptyText="Активних видач зараз немає."
+                                    ReturnRequested="ReturnRentalAsync" />
             }
         </div>
     }
 
-    @if (currentUser?.Role == "Admin")
+    @if (UserRoleHelper.IsAdmin(currentUser?.Role))
     {
         <div class="profile-card admin-card">
             <div class="profile-page-header">
@@ -186,67 +115,19 @@
                 </div>
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(statusMessage))
-            {
-                <div class="alert @(isError ? "alert-danger" : "alert-success")">
-                    @statusMessage
-                </div>
-            }
+            <StatusAlert Message="@statusMessage" IsError="@isError" />
 
             @if (isLoadingUsers)
             {
                 <p>Завантаження користувачів...</p>
             }
-            else if (users.Count == 0)
-            {
-                <p class="text-muted">Користувачів не знайдено або немає доступу.</p>
-            }
             else
             {
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Ім'я</th>
-                                <th>Email</th>
-                                <th>Роль</th>
-                                <th>Статус</th>
-                                <th>Дія</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (UserResponse user in users)
-                            {
-                                <tr>
-                                    <td>@user.Id</td>
-                                    <td>@user.FullName</td>
-                                    <td>@user.Email</td>
-                                    <td>@GetRoleName(user.Role)</td>
-                                    <td>@GetUserApprovalStatus(user)</td>
-                                    <td>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            @if (user.Role == "Teacher" && !user.IsApproved)
-                                            {
-                                                <button class="btn btn-sm btn-success"
-                                                        disabled="@isUserActionBusy"
-                                                        @onclick="() => ApproveTeacherAsync(user)">
-                                                    Підтвердити
-                                                </button>
-                                            }
-
-                                            <button class="btn btn-sm btn-danger"
-                                                    disabled="@(user.Id == currentUser.Id || isUserActionBusy)"
-                                                    @onclick="() => DeleteUserAsync(user)">
-                                                Видалити
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                <UserManagementTable Users="users"
+                                     CurrentUserId="@(currentUser?.Id ?? 0)"
+                                     IsBusy="isUserActionBusy"
+                                     ApproveRequested="ApproveTeacherAsync"
+                                     DeleteRequested="DeleteUserAsync" />
             }
         </div>
     }
@@ -254,10 +135,9 @@
 
 @code {
     private UserResponse? currentUser;
-    private List<UserResponse> users = new();
-    private List<Book> books = new();
-    private List<RentalRow> myRentalRows = new();
-    private List<RentalRow> pendingReturnRows = new();
+    private List<UserResponse> users = [];
+    private List<RentalListItem> myRentalRows = [];
+    private List<RentalListItem> activeRentalRows = [];
     private bool isLoadingUsers;
     private bool isLoadingBooks;
     private bool isReturnActionBusy;
@@ -267,31 +147,24 @@
     private string? returnStatusMessage;
     private bool returnIsError;
 
-    private bool CanManageReturns => currentUser?.Role == "Teacher" || currentUser?.Role == "Admin";
+    private bool CanManageRentals => UserRoleHelper.CanManageBooks(currentUser?.Role);
 
-    private string AvatarLetter
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(currentUser?.FullName))
-            {
-                return "?";
-            }
-
-            return currentUser.FullName.Trim()[0].ToString().ToUpperInvariant();
-        }
-    }
+    private string AvatarLetter => string.IsNullOrWhiteSpace(currentUser?.FullName)
+        ? "?"
+        : currentUser.FullName.Trim()[0].ToString().ToUpperInvariant();
 
     protected override async Task OnInitializedAsync()
     {
         currentUser = await AuthApiService.GetCurrentUserAsync();
 
-        if (currentUser is not null)
+        if (currentUser is null)
         {
-            await LoadBooksAndRentalsAsync();
+            return;
         }
 
-        if (currentUser?.Role == "Admin")
+        await LoadBooksAndRentalsAsync();
+
+        if (UserRoleHelper.IsAdmin(currentUser.Role))
         {
             await LoadUsersAsync();
         }
@@ -312,40 +185,27 @@
         }
 
         isLoadingBooks = true;
-        books = await BookApiService.GetBooksAsync();
+        List<Book> books = await BookApiService.GetBooksAsync();
+        myRentalRows = RentalUiHelper.BuildUserRentalRows(books, currentUser.Id);
 
-        myRentalRows = books
-            .SelectMany(book => book.Rentals
-                .Where(rental => rental.UserId == currentUser.Id
-                    && (IsActiveRental(rental) || IsReturnPendingRental(rental)))
-                .Select(rental => new RentalRow(book, rental)))
-            .OrderBy(row => row.Rental.DueAt)
-            .ToList();
-
-        if (CanManageReturns)
+        if (CanManageRentals)
         {
-            List<Book> booksWithReturnRequests = await BookApiService.GetReturnRequestsAsync();
-
-            pendingReturnRows = booksWithReturnRequests
-                .SelectMany(book => book.Rentals
-                    .Where(IsReturnPendingRental)
-                    .Select(rental => new RentalRow(book, rental)))
-                .OrderBy(row => row.Rental.ReturnRequestedAt ?? DateTime.MaxValue)
-                .ToList();
+            List<Book> booksWithActiveRentals = await BookApiService.GetActiveRentalBooksAsync();
+            activeRentalRows = RentalUiHelper.BuildActiveRentalRows(booksWithActiveRentals);
         }
         else
         {
-            pendingReturnRows.Clear();
+            activeRentalRows.Clear();
         }
 
         isLoadingBooks = false;
     }
 
-    private async Task ConfirmReturnAsync(int bookId, int rentalId)
+    private async Task ReturnRentalAsync(RentalReturnCommand command)
     {
         bool confirmed = await Js.InvokeAsync<bool>(
             "confirm",
-            "Підтвердити повернення книги?"
+            "Позначити книгу як фактично повернену до бібліотеки?"
         );
 
         if (!confirmed)
@@ -354,7 +214,7 @@
         }
 
         isReturnActionBusy = true;
-        var result = await BookApiService.ConfirmReturnBookAsync(bookId, rentalId);
+        var result = await BookApiService.StaffReturnBookAsync(command.BookId, command.RentalId);
         isReturnActionBusy = false;
 
         returnStatusMessage = result.Message;
@@ -416,83 +276,14 @@
         }
     }
 
-    private string GetRoleName(string role)
-    {
-        return role switch
-        {
-            "Student" => "Учень / студент",
-            "Teacher" => "Викладач",
-            "Admin" => "Адміністратор",
-            _ => role
-        };
-    }
-
-    private string GetUserApprovalStatus(UserResponse user)
-    {
-        if (user.Role == "Teacher" && !user.IsApproved)
-        {
-            return "Очікує підтвердження";
-        }
-
-        if (user.Role == "Teacher" && user.IsApproved && user.ApprovedAt.HasValue)
-        {
-            return $"Підтверджено {FormatDate(user.ApprovedAt)}";
-        }
-
-        return "Активний";
-    }
-
-    private static string GetRentalStatusName(string status)
-    {
-        if (IsActiveRentalStatus(status))
-        {
-            return "В оренді";
-        }
-
-        if (IsReturnPendingStatus(status))
-        {
-            return "Очікує підтвердження повернення";
-        }
-
-        if (string.Equals(status, RentalStatuses.Returned, StringComparison.OrdinalIgnoreCase))
-        {
-            return "Повернено";
-        }
-
-        return status;
-    }
-
-    private static bool IsActiveRental(BookRental rental) => IsActiveRentalStatus(rental.Status);
-
-    private static bool IsReturnPendingRental(BookRental rental) => IsReturnPendingStatus(rental.Status);
-
-    private static bool IsActiveRentalStatus(string status)
-    {
-        return string.Equals(status, RentalStatuses.Active, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsReturnPendingStatus(string status)
-    {
-        return string.Equals(status, RentalStatuses.ReturnPending, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(status, "PendingReturn", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(status, "ReturnRequested", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(status, "Pending", StringComparison.OrdinalIgnoreCase);
-    }
-
     private void GoLogin() => Navigation.NavigateTo("/login");
     private void GoCatalog() => Navigation.NavigateTo("/catalog");
+    private void GoRentals() => Navigation.NavigateTo("/rentals");
     private void OpenBook(int id) => Navigation.NavigateTo($"/books/{id}");
-
-    private static string FormatDate(DateTime? value)
-    {
-        return value.HasValue ? value.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—";
-    }
 
     private async Task LogoutAsync()
     {
         await AuthApiService.LogoutAsync();
         Navigation.NavigateTo("/");
     }
-
-    private record RentalRow(Book Book, BookRental Rental);
 }

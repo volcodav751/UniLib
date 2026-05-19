@@ -1,4 +1,5 @@
 @using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Helpers
 @using UniLibrary.Blazor.Services
 @inject AuthApiService AuthApiService
 @inject NavigationManager Navigation
@@ -28,7 +29,7 @@
                 <span>→</span>
             </button>
 
-            @if (currentUser.Role == "Teacher" || currentUser.Role == "Admin")
+            @if (UserRoleHelper.CanManageBooks(currentUser.Role))
             {
                 <button class="pill-button pill-button--primary" @onclick="GoCreateBook">
                     <span>Додати книгу</span>
@@ -47,16 +48,7 @@
         currentUser = await AuthApiService.GetCurrentUserAsync();
     }
 
-    private string GetRoleName(string role)
-    {
-        return role switch
-        {
-            "Student" => "Учень / студент",
-            "Teacher" => "Викладач",
-            "Admin" => "Адміністратор",
-            _ => role
-        };
-    }
+    private static string GetRoleName(string role) => UserRoleHelper.GetDisplayName(role);
 
     private void GoLogin() => Navigation.NavigateTo("/login");
     private void GoProfile() => Navigation.NavigateTo("/profile");

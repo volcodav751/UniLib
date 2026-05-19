@@ -1,0 +1,242 @@
+@page "/rentals"
+
+@using Microsoft.JSInterop
+@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Models.Requests
+@using UniLibrary.Blazor.Models.ViewModels
+@using UniLibrary.Blazor.Services
+
+@inject AuthApiService AuthApiService
+@inject BookApiService BookApiService
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+
+<PageTitle>Видача та повернення книг</PageTitle>
+
+<div class="profile-page">
+    <div class="profile-card">
+        <div class="profile-page-header">
+            <div class="profile-page-avatar admin-avatar">📚</div>
+            <div>
+                <h1>Видача та повернення книг</h1>
+                <p>Службова сторінка для бібліотекаря, викладача або адміністратора</p>
+            </div>
+        </div>
+
+        @if (isCheckingAccess)
+        {
+            <p class="text-muted">Перевірка доступу...</p>
+        }
+        else if (!canManageRentals)
+        {
+            <div class="alert alert-danger">
+                Ця сторінка доступна тільки викладачу або адміністратору. Учень не оформлює видачу самостійно через сайт.
+            </div>
+
+            <button class="btn btn-primary" @onclick="GoLogin">Увійти в інший акаунт</button>
+        }
+        else
+        {
+            <StatusAlert Message="@statusMessage" IsError="@isError" />
+
+            <div class="alert alert-secondary">
+                Реалістичний сценарій: читач приходить у бібліотеку, працівник вибирає книгу, вводить дані читача і записує видачу. Коли читач повертає книгу, працівник натискає «Повернено».
+            </div>
+
+            <h3>1. Записати видачу книги</h3>
+
+            <EditForm Model="RentalModel" OnValidSubmit="CreateRentalAsync">
+                <div class="mb-3">
+                    <label class="form-label">Книга</label>
+                    <InputSelect class="form-select" @bind-Value="SelectedBookId">
+                        <option value="0">Оберіть фізичну книгу з доступними копіями</option>
+                        @foreach (Book book in AvailablePhysicalBooks)
+                        {
+                            <option value="@book.Id">@book.Title — @book.Author (@book.AvailableCopies з @book.TotalCopies)</option>
+                        }
+                    </InputSelect>
+                    <div class="form-text">У списку показані тільки фізичні книги, які мають хоча б одну доступну копію.</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">ПІБ читача</label>
+                        <InputText class="form-control" @bind-Value="RentalModel.FullName" />
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Email читача</label>
+                        <InputText class="form-control" @bind-Value="RentalModel.Email" />
+                        <div class="form-text">Якщо email збігається з акаунтом студента, книга з'явиться у нього в профілі.</div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Група / клас / примітка до читача</label>
+                        <InputText class="form-control" @bind-Value="RentalModel.ReaderGroup" />
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Повернути до</label>
+                        <InputDate class="form-control" @bind-Value="RentalModel.DueAt" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Службова примітка</label>
+                    <InputTextArea class="form-control" @bind-Value="RentalModel.Note" />
+                </div>
+
+                <button class="btn btn-success" type="submit" disabled="@isSavingRental">
+                    @(isSavingRental ? "Збереження..." : "Записати видачу")
+                </button>
+            </EditForm>
+        }
+    </div>
+
+    @if (canManageRentals)
+    {
+        <div class="profile-card">
+            <div class="profile-page-header">
+                <div class="profile-page-avatar admin-avatar">↩</div>
+                <div>
+                    <h2>2. Зафіксувати повернення</h2>
+                    <p>Активні видачі фізичних книг</p>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Пошук у виданих книгах</label>
+                <input class="form-control"
+                       placeholder="Назва книги, автор, ПІБ або email читача"
+                       @bind="RentalSearchText"
+                       @bind:event="oninput" />
+            </div>
+
+            @if (isLoadingRentals)
+            {
+                <p class="text-muted">Завантаження активних видач...</p>
+            }
+            else
+            {
+                <ActiveRentalsTable Rows="FilteredActiveRentalRows"
+                                    IsBusy="isReturnActionBusy"
+                                    ShowBookLink="true"
+                                    OpenBook="OpenBook"
+                                    ReturnRequested="ReturnRentalAsync" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool isCheckingAccess = true;
+    private bool canManageRentals;
+    private bool isLoadingRentals;
+    private bool isSavingRental;
+    private bool isReturnActionBusy;
+    private string? statusMessage;
+    private bool isError;
+    private int SelectedBookId;
+    private string RentalSearchText = string.Empty;
+    private List<Book> books = [];
+    private List<RentalListItem> activeRentalRows = [];
+    private StaffCreateRentalRequest RentalModel = CreateEmptyRentalModel();
+
+    private List<Book> AvailablePhysicalBooks => books
+        .Where(book => !book.IsDigital && book.AvailableCopies > 0)
+        .OrderBy(book => book.Title)
+        .ToList();
+
+    private List<RentalListItem> FilteredActiveRentalRows => RentalUiHelper.FilterRows(activeRentalRows, RentalSearchText);
+
+    protected override async Task OnInitializedAsync()
+    {
+        canManageRentals = await AuthApiService.IsTeacherOrAdminAsync();
+        isCheckingAccess = false;
+
+        if (canManageRentals)
+        {
+            await ReloadDataAsync();
+        }
+    }
+
+    private async Task ReloadDataAsync()
+    {
+        isLoadingRentals = true;
+        books = await BookApiService.GetBooksAsync();
+        List<Book> activeRentalBooks = await BookApiService.GetActiveRentalBooksAsync();
+        activeRentalRows = RentalUiHelper.BuildActiveRentalRows(activeRentalBooks);
+        isLoadingRentals = false;
+    }
+
+    private async Task CreateRentalAsync()
+    {
+        if (SelectedBookId <= 0)
+        {
+            SetStatus("Оберіть книгу для видачі.", true);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(RentalModel.FullName))
+        {
+            SetStatus("Вкажіть ПІБ читача.", true);
+            return;
+        }
+
+        isSavingRental = true;
+        var result = await BookApiService.StaffRentBookAsync(SelectedBookId, RentalModel);
+        isSavingRental = false;
+
+        SetStatus(result.Message, !result.Success);
+
+        if (result.Success)
+        {
+            SelectedBookId = 0;
+            RentalModel = CreateEmptyRentalModel();
+            await ReloadDataAsync();
+        }
+    }
+
+    private async Task ReturnRentalAsync(RentalReturnCommand command)
+    {
+        bool confirmed = await Js.InvokeAsync<bool>(
+            "confirm",
+            "Позначити цю книгу як повернену до бібліотеки?"
+        );
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        isReturnActionBusy = true;
+        var result = await BookApiService.StaffReturnBookAsync(command.BookId, command.RentalId);
+        isReturnActionBusy = false;
+
+        SetStatus(result.Message, !result.Success);
+
+        if (result.Success)
+        {
+            await ReloadDataAsync();
+        }
+    }
+
+    private void SetStatus(string message, bool error)
+    {
+        statusMessage = message;
+        isError = error;
+    }
+
+    private static StaffCreateRentalRequest CreateEmptyRentalModel()
+    {
+        return new StaffCreateRentalRequest
+        {
+            DueAt = DateTime.Today.AddDays(14)
+        };
+    }
+
+    private void OpenBook(int id) => Navigation.NavigateTo($"/books/{id}");
+    private void GoLogin() => Navigation.NavigateTo("/login");
+}

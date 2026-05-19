@@ -1,0 +1,44 @@
+@using UniLibrary.Blazor.Helpers
+@using UniLibrary.Blazor.Models.ViewModels
+
+@if (Rows.Count == 0)
+{
+    <p class="text-muted">У вас немає активних виданих книг.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+            <thead>
+                <tr>
+                    <th>Книга</th>
+                    <th>Автор</th>
+                    <th>Повернути до</th>
+                    <th>Статус</th>
+                    <th>Дія</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (RentalListItem row in Rows)
+                {
+                    <tr>
+                        <td>@row.Book.Title</td>
+                        <td>@row.Book.Author</td>
+                        <td>@RentalUiHelper.FormatDate(row.Rental.DueAt)</td>
+                        <td>@RentalUiHelper.GetStatusName(row.Rental.Status)</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenBook.InvokeAsync(row.Book.Id)">
+                                Відкрити
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public List<RentalListItem> Rows { get; set; } = [];
+    [Parameter] public EventCallback<int> OpenBook { get; set; }
+}

@@ -1,6 +1,7 @@
 @page "/"
 
 @using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Helpers
 @using UniLibrary.Blazor.Services
 
 @inject NavigationManager Navigation
@@ -148,7 +149,7 @@
     private UserResponse? currentUser;
 
     private bool CanManageBooks =>
-        currentUser?.Role == "Teacher" || currentUser?.Role == "Admin";
+        UserRoleHelper.CanManageBooks(currentUser?.Role);
 
     protected override async Task OnInitializedAsync()
     {

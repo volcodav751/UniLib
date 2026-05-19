@@ -1,4 +1,5 @@
 @using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Helpers
 @using System.IO
 
 <div class="catalog-sidebar">
@@ -130,7 +131,7 @@
                 {
                     <button class="filter-pill @(Filters.OnlyRented ? "filter-pill--active" : "")"
                             @onclick="ToggleRented">
-                        <span>В оренді / очікує повернення</span>
+                        <span>Видані читачам</span>
                         <span>@RentedCount</span>
                     </button>
                 }
@@ -189,7 +190,7 @@
     private int AvailableCount => Books.Count(book => book.IsDigital || book.AvailableCopies > 0);
     private int DigitalCount => Books.Count(book => book.IsDigital);
     private int PhysicalCount => Books.Count(book => !book.IsDigital);
-    private int RentedCount => Books.Count(book => book.Rentals?.Any(rental => rental.Status == RentalStatuses.Active || rental.Status == RentalStatuses.ReturnPending) == true || book.RentedByUserId.HasValue);
+    private int RentedCount => Books.Count(book => book.Rentals?.Any(RentalUiHelper.IsActiveOrPending) == true || book.RentedByUserId.HasValue);
     private int WithFileCount => Books.Count(book => !string.IsNullOrWhiteSpace(book.FileId));
 
     private bool ShowAvailabilitySection =>

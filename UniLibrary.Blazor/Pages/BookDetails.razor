@@ -3,6 +3,7 @@
 @using Microsoft.JSInterop
 @using UniLibrary.Blazor.Models
 @using UniLibrary.Blazor.Services
+@using UniLibrary.Blazor.Helpers
 
 @inject BookApiService BookApiService
 @inject AuthApiService AuthApiService
@@ -48,7 +49,7 @@ else
     <p><strong>Статус:</strong> @GetAvailabilityText(Book)</p>
     <p><strong>Опис:</strong> @Book.Description</p>
 
-    @if (currentUser?.Role == "Admin")
+    @if (UserRoleHelper.IsAdmin(currentUser?.Role))
     {
         <div class="mb-3">
             <button class="btn btn-danger" @onclick="DeleteBookAsync">
@@ -60,93 +61,49 @@ else
     @if (!Book.IsDigital)
     {
         <div class="rental-card mb-3">
-            <h4>Оренда фізичної книги</h4>
+            <h4>Видача фізичної книги</h4>
 
-            @if (MyActiveRental is not null)
+            @if (CanManageRentals)
+            {
+                <div class="alert alert-secondary">
+                    Видача і повернення фізичних книг оформлюються працівником бібліотеки, викладачем або адміністратором. Для нової видачі відкрийте службову сторінку.
+                </div>
+
+                <button class="btn btn-success mb-3" @onclick="GoRentals">
+                    Перейти до видачі / повернення
+                </button>
+            }
+            else if (MyActiveRental is not null)
             {
                 <div class="alert alert-info">
-                    Книга орендована вами.
-                    <br />Дата оренди: @FormatDate(MyActiveRental.RentedAt)
-                    <br />Повернути до: @FormatDate(MyActiveRental.DueAt)
+                    Ця книга зараз записана на вас.
+                    <br />Дата видачі: @RentalUiHelper.FormatDate(MyActiveRental.RentedAt)
+                    <br />Повернути до: @RentalUiHelper.FormatDate(MyActiveRental.DueAt)
+                    <br />Повернення зафіксує працівник бібліотеки після фактичного повернення книги.
                 </div>
-
-                <button class="btn btn-outline-success" @onclick="RequestReturnBookAsync" disabled="@isRentalActionBusy">
-                    @(isRentalActionBusy ? "Надсилання..." : "Подати запит на повернення")
-                </button>
-            }
-            else if (MyPendingReturnRental is not null)
-            {
-                <div class="alert alert-warning">
-                    Ви вже подали запит на повернення цієї книги.
-                    <br />Запит створено: @FormatDate(MyPendingReturnRental.ReturnRequestedAt)
-                    <br />Книга стане доступною після підтвердження викладачем або адміністратором.
-                </div>
-            }
-            else if (Book.AvailableCopies > 0)
-            {
-                <p class="text-muted">
-                    Доступно копій: @Book.AvailableCopies з @Book.TotalCopies. Після оренди кількість доступних копій зменшиться на 1.
-                </p>
-
-                <button class="btn btn-success" @onclick="RentBookAsync" disabled="@isRentalActionBusy">
-                    @(isRentalActionBusy ? "Оформлення..." : "Орендувати книгу")
-                </button>
             }
             else
             {
-                <div class="alert alert-warning">
-                    Зараз немає доступних копій цієї книги.
+                <div class="alert alert-secondary">
+                    Щоб взяти цю фізичну книгу, потрібно звернутися до бібліотекаря. Він оформить видачу на сайті та вкаже ваші дані.
                 </div>
             }
 
-            @if (CanManageReturns && PendingReturnRentals.Count > 0)
+            @if (CanManageRentals && ActiveRentals.Count > 0)
             {
                 <div class="mt-4">
-                    <h5>Повернення, які очікують підтвердження</h5>
+                    <h5>Активні видачі цієї книги</h5>
                     <div class="table-responsive">
                         <table class="table table-bordered align-middle">
                             <thead>
                                 <tr>
-                                    <th>Користувач</th>
+                                    <th>Читач</th>
                                     <th>Email</th>
-                                    <th>Дата запиту</th>
-                                    <th>Дія</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (BookRental rental in PendingReturnRentals)
-                                {
-                                    <tr>
-                                        <td>@rental.FullName</td>
-                                        <td>@rental.Email</td>
-                                        <td>@FormatDate(rental.ReturnRequestedAt)</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-success"
-                                                    disabled="@isRentalActionBusy"
-                                                    @onclick="() => ConfirmReturnBookAsync(rental.RentalId)">
-                                                Підтвердити повернення
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            }
-
-            @if (CanManageReturns && ActiveRentals.Count > 0)
-            {
-                <div class="mt-4">
-                    <h5>Активні оренди</h5>
-                    <div class="table-responsive">
-                        <table class="table table-bordered align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Користувач</th>
-                                    <th>Email</th>
-                                    <th>Дата оренди</th>
+                                    <th>Група</th>
+                                    <th>Дата видачі</th>
                                     <th>Повернути до</th>
+                                    <th>Хто видав</th>
+                                    <th>Дія</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -154,9 +111,18 @@ else
                                 {
                                     <tr>
                                         <td>@rental.FullName</td>
-                                        <td>@rental.Email</td>
-                                        <td>@FormatDate(rental.RentedAt)</td>
-                                        <td>@FormatDate(rental.DueAt)</td>
+                                        <td>@RentalUiHelper.DisplayText(rental.Email)</td>
+                                        <td>@RentalUiHelper.DisplayText(rental.ReaderGroup)</td>
+                                        <td>@RentalUiHelper.FormatDate(rental.RentedAt)</td>
+                                        <td>@RentalUiHelper.FormatDate(rental.DueAt)</td>
+                                        <td>@RentalUiHelper.DisplayText(rental.IssuedByFullName)</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-success"
+                                                    disabled="@isRentalActionBusy"
+                                                    @onclick="() => ReturnRentalAsync(rental.RentalId)">
+                                                Позначити поверненою
+                                            </button>
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -169,7 +135,7 @@ else
     else
     {
         <div class="alert alert-secondary">
-            Це цифрова книга, тому оренда для неї не використовується. Її можна переглядати або скачати, якщо файл прикріплений.
+            Це цифрова книга, тому видача як фізичного примірника для неї не використовується. Її можна переглядати або скачати, якщо файл прикріплений.
         </div>
     }
 
@@ -227,25 +193,16 @@ else
     private bool isError;
     private bool isRentalActionBusy;
 
-    private bool CanManageReturns => currentUser?.Role == "Teacher" || currentUser?.Role == "Admin";
+    private bool CanManageRentals => UserRoleHelper.CanManageBooks(currentUser?.Role);
 
     private List<BookRental> ActiveRentals => Book?.Rentals?
-        .Where(IsActiveRental)
+        .Where(RentalUiHelper.IsActiveOrPending)
         .OrderBy(rental => rental.DueAt)
-        .ToList() ?? new List<BookRental>();
-
-    private List<BookRental> PendingReturnRentals => Book?.Rentals?
-        .Where(IsReturnPendingRental)
-        .OrderBy(rental => rental.ReturnRequestedAt)
-        .ToList() ?? new List<BookRental>();
+        .ToList() ?? [];
 
     private BookRental? MyActiveRental => currentUser is null
         ? null
-        : Book?.Rentals?.FirstOrDefault(rental => rental.UserId == currentUser.Id && IsActiveRental(rental));
-
-    private BookRental? MyPendingReturnRental => currentUser is null
-        ? null
-        : Book?.Rentals?.FirstOrDefault(rental => rental.UserId == currentUser.Id && IsReturnPendingRental(rental));
+        : Book?.Rentals?.FirstOrDefault(rental => rental.UserId == currentUser.Id && RentalUiHelper.IsActiveOrPending(rental));
 
     protected override async Task OnInitializedAsync()
     {
@@ -279,27 +236,7 @@ else
             || book.OriginalFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    private async Task RentBookAsync()
-    {
-        if (Book is null)
-        {
-            return;
-        }
-
-        isRentalActionBusy = true;
-        var result = await BookApiService.RentBookAsync(Book.Id);
-        isRentalActionBusy = false;
-
-        statusMessage = result.Message;
-        isError = !result.Success;
-
-        if (result.Success && result.Book is not null)
-        {
-            Book = result.Book;
-        }
-    }
-
-    private async Task RequestReturnBookAsync()
+    private async Task ReturnRentalAsync(int rentalId)
     {
         if (Book is null)
         {
@@ -308,7 +245,7 @@ else
 
         bool confirmed = await Js.InvokeAsync<bool>(
             "confirm",
-            $"Подати запит на повернення книги '{Book.Title}'?"
+            $"Позначити книгу '{Book.Title}' як повернену?"
         );
 
         if (!confirmed)
@@ -317,37 +254,7 @@ else
         }
 
         isRentalActionBusy = true;
-        var result = await BookApiService.RequestReturnBookAsync(Book.Id);
-        isRentalActionBusy = false;
-
-        statusMessage = result.Message;
-        isError = !result.Success;
-
-        if (result.Success && result.Book is not null)
-        {
-            Book = result.Book;
-        }
-    }
-
-    private async Task ConfirmReturnBookAsync(int rentalId)
-    {
-        if (Book is null)
-        {
-            return;
-        }
-
-        bool confirmed = await Js.InvokeAsync<bool>(
-            "confirm",
-            $"Підтвердити повернення книги '{Book.Title}'?"
-        );
-
-        if (!confirmed)
-        {
-            return;
-        }
-
-        isRentalActionBusy = true;
-        var result = await BookApiService.ConfirmReturnBookAsync(Book.Id, rentalId);
+        var result = await BookApiService.StaffReturnBookAsync(Book.Id, rentalId);
         isRentalActionBusy = false;
 
         statusMessage = result.Message;
@@ -396,33 +303,13 @@ else
 
         if (book.AvailableCopies > 0)
         {
-            return $"доступна для оренди, копій: {book.AvailableCopies} з {book.TotalCopies}";
+            return $"доступна для видачі у бібліотеці, копій: {book.AvailableCopies} з {book.TotalCopies}";
         }
 
-        bool hasOccupiedCopies = book.Rentals?.Any(rental => IsActiveRental(rental) || IsReturnPendingRental(rental)) == true;
-        return hasOccupiedCopies ? "усі копії зайняті" : "недоступна";
+        bool hasOccupiedCopies = book.Rentals?.Any(RentalUiHelper.IsActiveOrPending) == true;
+        return hasOccupiedCopies ? "усі копії видані читачам" : "недоступна";
     }
 
-    private static bool IsActiveRental(BookRental rental)
-    {
-        return string.Equals(rental.Status, RentalStatuses.Active, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsReturnPendingRental(BookRental rental)
-    {
-        return string.Equals(rental.Status, RentalStatuses.ReturnPending, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(rental.Status, "PendingReturn", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(rental.Status, "ReturnRequested", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(rental.Status, "Pending", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string FormatDate(DateTime? value)
-    {
-        return value.HasValue ? value.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "—";
-    }
-
-    private void GoLogin()
-    {
-        Navigation.NavigateTo("/login");
-    }
+    private void GoLogin() => Navigation.NavigateTo("/login");
+    private void GoRentals() => Navigation.NavigateTo("/rentals");
 }

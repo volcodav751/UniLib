@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace UniLibrary.Api.Models
+namespace UniLibrary.Api.Models.Requests
 {
     public class RegisterRequest
     {

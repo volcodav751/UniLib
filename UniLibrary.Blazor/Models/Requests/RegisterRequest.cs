@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace UniLibrary.Blazor.Models
+namespace UniLibrary.Blazor.Models.Requests
 {
     public class RegisterRequest
     {

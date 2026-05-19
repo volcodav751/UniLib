@@ -2,7 +2,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.JSInterop;
+using UniLibrary.Blazor.Helpers;
 using UniLibrary.Blazor.Models;
+using UniLibrary.Blazor.Models.Requests;
 
 namespace UniLibrary.Blazor.Services
 {
@@ -53,7 +55,7 @@ namespace UniLibrary.Blazor.Services
 
                         string message = !string.IsNullOrWhiteSpace(auth.Message)
                             ? auth.Message
-                            : auth.User.Role == "Admin"
+                            : auth.User.Role == UserRoleHelper.Admin
                                 ? "Реєстрація успішна. Це перший акаунт, тому він автоматично став адміністратором."
                                 : "Реєстрація успішна";
 
@@ -114,19 +116,19 @@ namespace UniLibrary.Blazor.Services
         public async Task<bool> IsTeacherAsync()
         {
             UserResponse? user = await GetCurrentUserAsync();
-            return user?.Role == "Teacher";
+            return user?.Role == UserRoleHelper.Teacher;
         }
 
         public async Task<bool> IsAdminAsync()
         {
             UserResponse? user = await GetCurrentUserAsync();
-            return user?.Role == "Admin";
+            return user?.Role == UserRoleHelper.Admin;
         }
 
         public async Task<bool> IsTeacherOrAdminAsync()
         {
             UserResponse? user = await GetCurrentUserAsync();
-            return user?.Role == "Teacher" || user?.Role == "Admin";
+            return UserRoleHelper.CanManageBooks(user?.Role);
         }
 
         public async Task<List<UserResponse>> GetUsersAsync()

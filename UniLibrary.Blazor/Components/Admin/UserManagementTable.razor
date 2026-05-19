@@ -1,0 +1,77 @@
+@using UniLibrary.Blazor.Helpers
+@using UniLibrary.Blazor.Models
+
+@if (Users.Count == 0)
+{
+    <p class="text-muted">Користувачів не знайдено або немає доступу.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Ім'я</th>
+                    <th>Email</th>
+                    <th>Роль</th>
+                    <th>Статус</th>
+                    <th>Дія</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (UserResponse user in Users)
+                {
+                    <tr>
+                        <td>@user.Id</td>
+                        <td>@user.FullName</td>
+                        <td>@user.Email</td>
+                        <td>@UserRoleHelper.GetDisplayName(user.Role)</td>
+                        <td>@GetApprovalStatus(user)</td>
+                        <td>
+                            <div class="d-flex gap-2 flex-wrap">
+                                @if (user.Role == UserRoleHelper.Teacher && !user.IsApproved)
+                                {
+                                    <button class="btn btn-sm btn-success"
+                                            disabled="@IsBusy"
+                                            @onclick="() => ApproveRequested.InvokeAsync(user)">
+                                        Підтвердити
+                                    </button>
+                                }
+
+                                <button class="btn btn-sm btn-danger"
+                                        disabled="@(user.Id == CurrentUserId || IsBusy)"
+                                        @onclick="() => DeleteRequested.InvokeAsync(user)">
+                                    Видалити
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public List<UserResponse> Users { get; set; } = [];
+    [Parameter] public int CurrentUserId { get; set; }
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public EventCallback<UserResponse> ApproveRequested { get; set; }
+    [Parameter] public EventCallback<UserResponse> DeleteRequested { get; set; }
+
+    private static string GetApprovalStatus(UserResponse user)
+    {
+        if (user.Role == UserRoleHelper.Teacher && !user.IsApproved)
+        {
+            return "Очікує підтвердження";
+        }
+
+        if (user.Role == UserRoleHelper.Teacher && user.IsApproved && user.ApprovedAt.HasValue)
+        {
+            return $"Підтверджено {RentalUiHelper.FormatDate(user.ApprovedAt)}";
+        }
+
+        return "Активний";
+    }
+}

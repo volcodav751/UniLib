@@ -5,286 +5,238 @@ using Microsoft.AspNetCore.Components.Forms;
 using UniLibrary.Blazor.Models;
 using UniLibrary.Blazor.Models.Requests;
 
-namespace UniLibrary.Blazor.Services
+namespace UniLibrary.Blazor.Services;
+
+public class BookApiService
 {
-    public class BookApiService
+    private const long MaxUploadSizeBytes = 100 * 1024 * 1024;
+
+    private readonly HttpClient _httpClient;
+    private readonly AuthApiService _authApiService;
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        private readonly HttpClient _httpClient;
-        private readonly AuthApiService _authApiService;
+        PropertyNameCaseInsensitive = true
+    };
 
-        private static readonly JsonSerializerOptions JsonOptions = new()
-        {
-            PropertyNameCaseInsensitive = true
-        };
+    public BookApiService(HttpClient httpClient, AuthApiService authApiService)
+    {
+        _httpClient = httpClient;
+        _authApiService = authApiService;
+    }
 
-        public BookApiService(HttpClient httpClient, AuthApiService authApiService)
-        {
-            _httpClient = httpClient;
-            _authApiService = authApiService;
-        }
+    public Task<List<Book>> GetBooksAsync()
+    {
+        return GetListAsync<Book>("api/books");
+    }
 
-        public async Task<List<Book>> GetBooksAsync()
+    public Task<List<Book>> GetActiveRentalBooksAsync()
+    {
+        return GetListAsync<Book>("api/books/rentals/active");
+    }
+
+    public Task<Book?> GetBookByIdAsync(int id)
+    {
+        return GetAsync<Book>($"api/books/{id}");
+    }
+
+    public async Task<Book?> CreateBookAsync(CreateBookRequest request)
+    {
+        var result = await SendJsonAsync<Book>(HttpMethod.Post, "api/books", request);
+        return result.Value;
+    }
+
+    public async Task<(bool Success, string Message)> UploadBookFileAsync(int id, IBrowserFile file)
+    {
+        try
         {
+            using MultipartFormDataContent content = new();
+            await using Stream fileStream = file.OpenReadStream(maxAllowedSize: MaxUploadSizeBytes);
+            using StreamContent streamContent = new(fileStream);
+
+            if (!string.IsNullOrWhiteSpace(file.ContentType))
+            {
+                streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            }
+
+            content.Add(streamContent, "File", file.Name);
+
             using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                HttpMethod.Get,
-                "api/books"
+                HttpMethod.Post,
+                $"api/books/{id}/file"
             );
 
+            message.Content = content;
+
             HttpResponseMessage response = await _httpClient.SendAsync(message);
+            string responseText = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
             {
-                return new List<Book>();
+                return (false, $"Помилка завантаження: {response.StatusCode}. {CleanError(responseText)}");
             }
 
-            List<Book>? books = await response.Content.ReadFromJsonAsync<List<Book>>();
-            return books ?? new List<Book>();
-        }
+            if (responseText.Contains("Failed", StringComparison.OrdinalIgnoreCase))
+            {
+                return (true, "Файл завантажено, але PDF-передперегляд не створено. Перевір LibreOffice на API-комп'ютері.");
+            }
 
-        public async Task<List<Book>> GetReturnRequestsAsync()
+            return (true, "Файл завантажено, PDF-передперегляд готовий.");
+        }
+        catch (Exception ex)
         {
-            try
-            {
-                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                    HttpMethod.Get,
-                    "api/books/return-requests"
-                );
-
-                HttpResponseMessage response = await _httpClient.SendAsync(message);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    return new List<Book>();
-                }
-
-                List<Book>? books = await response.Content.ReadFromJsonAsync<List<Book>>();
-                return books ?? new List<Book>();
-            }
-            catch
-            {
-                return new List<Book>();
-            }
+            return (false, $"Помилка: {ex.Message}");
         }
+    }
 
-        public async Task<Book?> GetBookByIdAsync(int id)
+    public async Task<(bool Success, string Message, Book? Book)> StaffRentBookAsync(int bookId, StaffCreateRentalRequest request)
+    {
+        var result = await SendJsonAsync<Book>(HttpMethod.Post, $"api/books/{bookId}/staff-rent", request);
+        return (result.Success, result.Success ? "Видачу книги успішно записано в базу." : result.Message, result.Value);
+    }
+
+    public async Task<(bool Success, string Message, Book? Book)> StaffReturnBookAsync(int bookId, int rentalId, StaffReturnRentalRequest? request = null)
+    {
+        var result = await SendJsonAsync<Book>(
+            HttpMethod.Post,
+            $"api/books/{bookId}/rentals/{rentalId}/staff-return",
+            request ?? new StaffReturnRentalRequest()
+        );
+
+        return (result.Success, result.Success ? "Повернення книги зафіксовано. Копія знову доступна." : result.Message, result.Value);
+    }
+
+    public async Task<(bool Success, string Message)> DeleteBookAsync(int id)
+    {
+        try
         {
             using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                HttpMethod.Get,
+                HttpMethod.Delete,
                 $"api/books/{id}"
             );
 
             HttpResponseMessage response = await _httpClient.SendAsync(message);
 
-            if (!response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
-                return null;
+                return (true, "Книгу видалено.");
             }
 
-            return await response.Content.ReadFromJsonAsync<Book>();
+            string error = await response.Content.ReadAsStringAsync();
+            return (false, CleanError(error));
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Помилка: {ex.Message}");
+        }
+    }
+
+    public Task<string> GetBookPreviewUrlAsync(int id)
+    {
+        return CreateUrlWithTokenAsync($"api/books/{id}/preview");
+    }
+
+    public Task<string> GetBookFileUrlAsync(int id)
+    {
+        return CreateUrlWithTokenAsync($"api/books/{id}/file");
+    }
+
+    private async Task<List<T>> GetListAsync<T>(string url)
+    {
+        try
+        {
+            T[]? values = await SendAuthorizedAsync<T[]>(HttpMethod.Get, url);
+            return values?.ToList() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private async Task<T?> GetAsync<T>(string url)
+    {
+        try
+        {
+            return await SendAuthorizedAsync<T>(HttpMethod.Get, url);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private async Task<T?> SendAuthorizedAsync<T>(HttpMethod method, string url)
+    {
+        using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(method, url);
+        HttpResponseMessage response = await _httpClient.SendAsync(message);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return default;
         }
 
-        public async Task<Book?> CreateBookAsync(CreateBookRequest request)
-        {
-            using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                HttpMethod.Post,
-                "api/books"
-            );
+        return await response.Content.ReadFromJsonAsync<T>(JsonOptions);
+    }
 
-            message.Content = JsonContent.Create(request);
+    private async Task<ApiResult<T>> SendJsonAsync<T>(HttpMethod method, string url, object payload)
+    {
+        try
+        {
+            using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(method, url);
+            message.Content = JsonContent.Create(payload);
+
             HttpResponseMessage response = await _httpClient.SendAsync(message);
+            string responseText = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return ApiResult<T>.Fail(CleanError(responseText));
             }
 
-            return await response.Content.ReadFromJsonAsync<Book>();
+            T? value = JsonSerializer.Deserialize<T>(responseText, JsonOptions);
+            return ApiResult<T>.Ok(value);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<T>.Fail($"Помилка: {ex.Message}");
+        }
+    }
+
+    private async Task<string> CreateUrlWithTokenAsync(string relativeUrl)
+    {
+        string baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+        string url = $"{baseUrl}/{relativeUrl}";
+        string? token = await _authApiService.GetTokenAsync();
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return url;
         }
 
-        public async Task<(bool Success, string Message)> UploadBookFileAsync(int id, IBrowserFile file)
+        return $"{url}?access_token={Uri.EscapeDataString(token)}";
+    }
+
+    private static string CleanError(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
         {
-            try
-            {
-                using MultipartFormDataContent content = new();
-                await using Stream fileStream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
-                using StreamContent streamContent = new(fileStream);
-
-                if (!string.IsNullOrWhiteSpace(file.ContentType))
-                {
-                    streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-                }
-
-                content.Add(streamContent, "File", file.Name);
-
-                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                    HttpMethod.Post,
-                    $"api/books/{id}/file"
-                );
-
-                message.Content = content;
-
-                HttpResponseMessage response = await _httpClient.SendAsync(message);
-                string responseText = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    return (false, $"Помилка завантаження: {response.StatusCode}. {CleanError(responseText)}");
-                }
-
-                if (responseText.Contains("Failed", StringComparison.OrdinalIgnoreCase))
-                {
-                    return (true, "Файл завантажено, але PDF-передперегляд не створено. Перевір LibreOffice на API-комп'ютері.");
-                }
-
-                return (true, "Файл завантажено, PDF-передперегляд готовий.");
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Помилка: {ex.Message}");
-            }
+            return "Сталася помилка.";
         }
 
+        return error.Trim('"', ' ', '\n', '\r', '\t');
+    }
 
-        public async Task<(bool Success, string Message, Book? Book)> RentBookAsync(int id)
+    private readonly record struct ApiResult<T>(bool Success, string Message, T? Value)
+    {
+        public static ApiResult<T> Ok(T? value)
         {
-            try
-            {
-                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                    HttpMethod.Post,
-                    $"api/books/{id}/rent"
-                );
-
-                HttpResponseMessage response = await _httpClient.SendAsync(message);
-                string responseText = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    return (false, CleanError(responseText), null);
-                }
-
-                Book? book = JsonSerializer.Deserialize<Book>(responseText, JsonOptions);
-                return (true, "Книгу успішно орендовано.", book);
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Помилка: {ex.Message}", null);
-            }
+            return new ApiResult<T>(true, string.Empty, value);
         }
 
-        public async Task<(bool Success, string Message, Book? Book)> RequestReturnBookAsync(int id)
+        public static ApiResult<T> Fail(string message)
         {
-            try
-            {
-                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                    HttpMethod.Post,
-                    $"api/books/{id}/return-request"
-                );
-
-                HttpResponseMessage response = await _httpClient.SendAsync(message);
-                string responseText = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    return (false, CleanError(responseText), null);
-                }
-
-                Book? book = JsonSerializer.Deserialize<Book>(responseText, JsonOptions);
-                return (true, "Запит на повернення подано. Книга стане доступною після підтвердження викладачем або адміністратором.", book);
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Помилка: {ex.Message}", null);
-            }
-        }
-
-        public async Task<(bool Success, string Message, Book? Book)> ConfirmReturnBookAsync(int bookId, int rentalId)
-        {
-            try
-            {
-                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                    HttpMethod.Post,
-                    $"api/books/{bookId}/rentals/{rentalId}/confirm-return"
-                );
-
-                HttpResponseMessage response = await _httpClient.SendAsync(message);
-                string responseText = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    return (false, CleanError(responseText), null);
-                }
-
-                Book? book = JsonSerializer.Deserialize<Book>(responseText, JsonOptions);
-                return (true, "Повернення підтверджено. Копія книги знову доступна для оренди.", book);
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Помилка: {ex.Message}", null);
-            }
-        }
-
-        public Task<(bool Success, string Message, Book? Book)> ReturnBookAsync(int id)
-        {
-            return RequestReturnBookAsync(id);
-        }
-
-        public async Task<(bool Success, string Message)> DeleteBookAsync(int id)
-        {
-            try
-            {
-                using HttpRequestMessage message = await _authApiService.CreateAuthorizedRequestAsync(
-                    HttpMethod.Delete,
-                    $"api/books/{id}"
-                );
-
-                HttpResponseMessage response = await _httpClient.SendAsync(message);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    return (true, "Книгу видалено.");
-                }
-
-                string error = await response.Content.ReadAsStringAsync();
-                return (false, CleanError(error));
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Помилка: {ex.Message}");
-            }
-        }
-
-        public async Task<string> GetBookPreviewUrlAsync(int id)
-        {
-            return await CreateUrlWithTokenAsync($"api/books/{id}/preview");
-        }
-
-        public async Task<string> GetBookFileUrlAsync(int id)
-        {
-            return await CreateUrlWithTokenAsync($"api/books/{id}/file");
-        }
-
-        private async Task<string> CreateUrlWithTokenAsync(string relativeUrl)
-        {
-            string baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
-            string url = $"{baseUrl}/{relativeUrl}";
-            string? token = await _authApiService.GetTokenAsync();
-
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                return url;
-            }
-
-            return $"{url}?access_token={Uri.EscapeDataString(token)}";
-        }
-
-        private static string CleanError(string error)
-        {
-            if (string.IsNullOrWhiteSpace(error))
-            {
-                return "Сталася помилка.";
-            }
-
-            return error.Trim('"', ' ', '\n', '\r', '\t');
+            return new ApiResult<T>(false, message, default);
         }
     }
 }

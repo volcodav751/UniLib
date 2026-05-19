@@ -1,7 +1,7 @@
 @page "/books/create"
 
 @using Microsoft.AspNetCore.Components.Forms
-@using UniLibrary.Blazor.Models
+@using UniLibrary.Blazor.Helpers
 @using UniLibrary.Blazor.Models.Requests
 @using UniLibrary.Blazor.Services
 
@@ -80,33 +80,33 @@ else
         <div class="mb-3">
             <label class="form-label">Тип книги</label>
             <select class="form-select" @bind="BookType">
-                <option value="Physical">Фізична книга — її можна орендувати</option>
-                <option value="Digital">Цифрова книга — без оренди, тільки перегляд/скачування</option>
+                <option value="@BookFormHelper.PhysicalBookType">Фізична книга — її можна видавати читачам</option>
+                <option value="@BookFormHelper.DigitalBookType">Цифрова книга — без видачі, тільки перегляд/скачування</option>
             </select>
             <div class="form-text">
-                Оренда доступна тільки для фізичних книг. Для цифрових книг кнопка оренди не показується.
+                Видача доступна тільки для фізичних книг. Для цифрових книг службова видача не використовується.
             </div>
         </div>
 
-        @if (BookType == "Physical")
+        @if (BookType == BookFormHelper.PhysicalBookType)
         {
             <div class="mb-3">
                 <label class="form-label">Кількість копій</label>
                 <InputNumber class="form-control" @bind-Value="BookModel.TotalCopies" />
                 <div class="form-text">
-                    Це кількість фізичних примірників у бібліотеці. Під час оренди доступних копій стає менше.
+                    Це кількість фізичних примірників у бібліотеці. Під час видачі доступних копій стає менше.
                 </div>
             </div>
 
             <div class="form-check mb-3">
                 <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsAvailable" />
-                <label class="form-check-label">Доступна для оренди одразу після створення</label>
+                <label class="form-check-label">Доступна для видачі одразу після створення</label>
             </div>
         }
         else
         {
             <div class="alert alert-secondary">
-                Для цифрової книги копії та оренда не використовуються. Вона буде доступна онлайн, якщо прикріпити файл.
+                Для цифрової книги копії та видача не використовуються. Вона буде доступна онлайн, якщо прикріпити файл.
             </div>
         }
 
@@ -161,9 +161,9 @@ else
 }
 
 @code {
-    private CreateBookRequest BookModel = CreateEmptyBookModel();
+    private CreateBookRequest BookModel = BookFormHelper.CreateEmptyModel();
 
-    private string BookType = "Physical";
+    private string BookType = BookFormHelper.PhysicalBookType;
     private string TagsText = string.Empty;
     private IBrowserFile? SelectedFile;
     private string? StatusMessage;
@@ -191,30 +191,16 @@ else
             StatusMessage = null;
             IsError = false;
 
-            BookModel.IsDigital = BookType == "Digital";
+            BookFormHelper.ApplyBookType(BookModel, BookType);
 
-            if (BookModel.IsDigital)
+            string? validationError = BookFormHelper.Validate(BookModel);
+            if (validationError is not null)
             {
-                BookModel.IsAvailable = true;
-                BookModel.TotalCopies = 0;
-            }
-
-            if (!ValidateBookModel())
-            {
+                SetStatus(validationError, true);
                 return;
             }
 
-            BookModel.Title = BookModel.Title.Trim();
-            BookModel.Author = BookModel.Author.Trim();
-            BookModel.Description = BookModel.Description.Trim();
-            BookModel.Publisher = BookModel.Publisher.Trim();
-            BookModel.Isbn = BookModel.Isbn.Trim();
-            BookModel.CoverImageUrl = BookModel.CoverImageUrl?.Trim();
-
-            BookModel.Tags = TagsText
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            BookFormHelper.PrepareForSaving(BookModel, TagsText);
 
             var createdBook = await BookApiService.CreateBookAsync(BookModel);
 
@@ -245,8 +231,8 @@ else
 
             IsError = false;
 
-            BookModel = CreateEmptyBookModel();
-            BookType = "Physical";
+            BookModel = BookFormHelper.CreateEmptyModel();
+            BookType = BookFormHelper.PhysicalBookType;
             TagsText = string.Empty;
             SelectedFile = null;
         }
@@ -261,68 +247,10 @@ else
         }
     }
 
-    private bool ValidateBookModel()
+    private void SetStatus(string message, bool isError)
     {
-        if (string.IsNullOrWhiteSpace(BookModel.Title))
-        {
-            IsError = true;
-            StatusMessage = "Введіть назву книги.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(BookModel.Author))
-        {
-            IsError = true;
-            StatusMessage = "Введіть автора книги.";
-            return false;
-        }
-
-        if (!LibraryOptions.IsAllowedCategory(BookModel.Category))
-        {
-            IsError = true;
-            StatusMessage = "Оберіть категорію зі списку.";
-            return false;
-        }
-
-        if (!LibraryOptions.IsAllowedLanguage(BookModel.Language))
-        {
-            IsError = true;
-            StatusMessage = "Оберіть мову зі списку.";
-            return false;
-        }
-
-        if (BookModel.PublicationYear < 1000 || BookModel.PublicationYear > DateTime.Now.Year + 1)
-        {
-            IsError = true;
-            StatusMessage = "Вкажіть коректний рік публікації.";
-            return false;
-        }
-
-        if (BookModel.PageCount < 0)
-        {
-            IsError = true;
-            StatusMessage = "Кількість сторінок не може бути від'ємною.";
-            return false;
-        }
-
-        if (!BookModel.IsDigital && BookModel.TotalCopies < 1)
-        {
-            IsError = true;
-            StatusMessage = "Для фізичної книги потрібно вказати хоча б 1 копію.";
-            return false;
-        }
-
-        return true;
-    }
-
-    private static CreateBookRequest CreateEmptyBookModel()
-    {
-        return new CreateBookRequest
-        {
-            IsAvailable = true,
-            IsDigital = false,
-            TotalCopies = 1
-        };
+        StatusMessage = message;
+        IsError = isError;
     }
 
     private void GoLogin()

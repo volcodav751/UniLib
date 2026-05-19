@@ -2,19 +2,34 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using UniLibrary.Api.Data;
+using UniLibrary.Api.Repos;
 using UniLibrary.Api.Services;
+using UniLibrary.Api.Services.Auth;
+using UniLibrary.Api.Services.Books;
+using UniLibrary.Api.Services.Common;
+using UniLibrary.Api.Services.Files;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
 string connectionString = builder.Configuration.GetConnectionString("LiteDb")
     ?? "Filename=Unilab.db;Connection=shared";
 
 builder.Services.AddSingleton(new LiteDbContext(connectionString));
-builder.Services.AddSingleton<LiteDbService>();
+
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PdfPreviewService>();
+
+builder.Services.AddSingleton<IBookRepository, BookRepository>();
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<IBookFileRepository, LiteDbBookFileRepository>();
+
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<IBookFileService, BookFileService>();
 
 string jwtKey = builder.Configuration["Jwt:Key"]
     ?? "UniLibrary development JWT secret key 2026. Change this long key before real deployment.";

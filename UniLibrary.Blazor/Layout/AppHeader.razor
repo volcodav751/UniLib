@@ -1,6 +1,7 @@
 @using Microsoft.AspNetCore.Components.Web
 @using UniLibrary.Blazor.Models
 @using UniLibrary.Blazor.Services
+@using UniLibrary.Blazor.Helpers
 
 @implements IDisposable
 
@@ -33,6 +34,10 @@
         <div class="header-actions">
             @if (canManageBooks)
             {
+                <button class="add-book-button" @onclick="GoRentals">
+                    Видача книг
+                </button>
+
                 <button class="add-book-button" @onclick="GoAddBook">
                     Додати книгу
                 </button>
@@ -87,7 +92,7 @@
     private async Task LoadUserAsync()
     {
         currentUser = await AuthApiService.GetCurrentUserAsync();
-        canManageBooks = currentUser?.Role == "Teacher" || currentUser?.Role == "Admin";
+        canManageBooks = UserRoleHelper.CanManageBooks(currentUser?.Role);
     }
 
     private void OnAuthStateChanged()
@@ -126,6 +131,7 @@
     private void GoRegister() => Navigation.NavigateTo("/register");
     private void GoProfile() => Navigation.NavigateTo("/profile");
     private void GoAddBook() => Navigation.NavigateTo("/books/create");
+    private void GoRentals() => Navigation.NavigateTo("/rentals");
 
     private string GetAvatarLetter()
     {
@@ -134,16 +140,7 @@
             : currentUser.FullName.Trim()[0].ToString().ToUpperInvariant();
     }
 
-    private string GetRoleName(string role)
-    {
-        return role switch
-        {
-            "Student" => "Студент",
-            "Teacher" => "Викладач",
-            "Admin" => "Адмін",
-            _ => role
-        };
-    }
+    private static string GetRoleName(string role) => UserRoleHelper.GetDisplayName(role);
 
     private async Task LogoutAsync()
     {
