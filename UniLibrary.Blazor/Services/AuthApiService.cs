@@ -113,18 +113,6 @@ namespace UniLibrary.Blazor.Services
             return auth?.Token;
         }
 
-        public async Task<bool> IsTeacherAsync()
-        {
-            UserResponse? user = await GetCurrentUserAsync();
-            return user?.Role == UserRoleHelper.Teacher;
-        }
-
-        public async Task<bool> IsAdminAsync()
-        {
-            UserResponse? user = await GetCurrentUserAsync();
-            return user?.Role == UserRoleHelper.Admin;
-        }
-
         public async Task<bool> IsTeacherOrAdminAsync()
         {
             UserResponse? user = await GetCurrentUserAsync();

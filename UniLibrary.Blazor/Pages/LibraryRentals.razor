@@ -45,7 +45,7 @@
 
             <h3>1. Записати видачу книги</h3>
 
-            <EditForm Model="RentalModel" OnValidSubmit="CreateRentalAsync">
+            <EditForm class="form-stack" Model="RentalModel" OnValidSubmit="CreateRentalAsync">
                 <div class="mb-3">
                     <label class="form-label">Книга</label>
                     <InputSelect class="form-select" @bind-Value="SelectedBookId">
@@ -124,7 +124,7 @@
                                     IsBusy="isReturnActionBusy"
                                     ShowBookLink="true"
                                     OpenBook="OpenBook"
-                                    ReturnRequested="ReturnRentalAsync" />
+                                    ReturnClicked="ReturnRentalAsync" />
             }
         </div>
     }

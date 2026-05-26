@@ -47,7 +47,7 @@ else
                         <td>
                             <button class="btn btn-sm btn-success"
                                     disabled="@IsBusy"
-                                    @onclick="() => ReturnRequested.InvokeAsync(new RentalReturnCommand(row.Book.Id, row.Rental.RentalId))">
+                                    @onclick="() => ReturnClicked.InvokeAsync(new RentalReturnCommand(row.Book.Id, row.Rental.RentalId))">
                                 Повернено
                             </button>
                         </td>
@@ -64,5 +64,5 @@ else
     [Parameter] public bool ShowBookLink { get; set; }
     [Parameter] public string EmptyText { get; set; } = "Активних видач не знайдено.";
     [Parameter] public EventCallback<int> OpenBook { get; set; }
-    [Parameter] public EventCallback<RentalReturnCommand> ReturnRequested { get; set; }
+    [Parameter] public EventCallback<RentalReturnCommand> ReturnClicked { get; set; }
 }

@@ -15,5 +15,6 @@ builder.Services.AddScoped(sp => new HttpClient
 
 builder.Services.AddScoped<AuthApiService>();
 builder.Services.AddScoped<BookApiService>();
+builder.Services.AddScoped<ThemeService>();
 
 await builder.Build().RunAsync();

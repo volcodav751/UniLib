@@ -12,6 +12,8 @@
 
 <PageTitle>Перегляд книги</PageTitle>
 
+<div class="profile-page">
+
 @if (!string.IsNullOrWhiteSpace(statusMessage))
 {
     <div class="alert @(isError ? "alert-danger" : "alert-success")">
@@ -35,20 +37,32 @@ else if (Book is null)
 }
 else
 {
-    <h3>@Book.Title</h3>
+    <div class="profile-card">
+        <div class="profile-page-header">
+            <div class="profile-page-avatar">📖</div>
+            <div>
+                <h1>@Book.Title</h1>
+                <p>@Book.Author</p>
+            </div>
+        </div>
 
-    <p><strong>Автор:</strong> @Book.Author</p>
-    <p><strong>Категорія:</strong> @Book.Category</p>
-    <p><strong>Мова:</strong> @Book.Language</p>
-    <p><strong>Рік:</strong> @Book.PublicationYear</p>
-    <p><strong>Тип:</strong> @(Book.IsDigital ? "Цифрова книга" : "Фізична книга")</p>
-    @if (!Book.IsDigital)
-    {
-        <p><strong>Копії:</strong> доступно @Book.AvailableCopies з @Book.TotalCopies</p>
-    }
-    <p><strong>Статус:</strong> @GetAvailabilityText(Book)</p>
-    <p><strong>Опис:</strong> @Book.Description</p>
+    <div class="profile-info-grid">
+        <div class="profile-info-item"><span>Автор</span><strong>@Book.Author</strong></div>
+        <div class="profile-info-item"><span>Категорія</span><strong>@Book.Category</strong></div>
+        <div class="profile-info-item"><span>Мова</span><strong>@Book.Language</strong></div>
+        <div class="profile-info-item"><span>Рік</span><strong>@Book.PublicationYear</strong></div>
+        <div class="profile-info-item"><span>Тип</span><strong>@(Book.IsDigital ? "Цифрова книга" : "Фізична книга")</strong></div>
+        @if (!Book.IsDigital)
+        {
+            <div class="profile-info-item"><span>Копії</span><strong>@Book.AvailableCopies з @Book.TotalCopies</strong></div>
+        }
+        <div class="profile-info-item"><span>Статус</span><strong>@GetAvailabilityText(Book)</strong></div>
+    </div>
 
+    <div class="book-description-panel">
+        <strong>Опис:</strong>
+        <p>@Book.Description</p>
+    </div>
     @if (UserRoleHelper.IsAdmin(currentUser?.Role))
     {
         <div class="mb-3">
@@ -141,24 +155,26 @@ else
 
     @if (!string.IsNullOrWhiteSpace(Book.FileId))
     {
-        <div class="mb-3">
-            <a class="btn btn-primary"
-               href="@downloadUrl"
-               target="_blank">
-                Скачати оригінальний файл
-            </a>
-        </div>
+        <div class="book-file-panel">
+            <div class="d-flex gap-3 flex-wrap align-items-center justify-content-between">
+                <div>
+                    <h4>Файл книги</h4>
+                    <p class="text-muted mb-0">Оригінальний файл: @Book.OriginalFileName</p>
+                </div>
 
-        <p class="text-muted">
-            Оригінальний файл: @Book.OriginalFileName
-        </p>
+                <a class="btn btn-primary"
+                   href="@downloadUrl"
+                   target="_blank">
+                    Скачати файл
+                </a>
+            </div>
+        </div>
 
         @if (CanPreview(Book))
         {
-            <h4>PDF-передперегляд</h4>
+            <h4 class="mt-4 mb-3">PDF-передперегляд</h4>
 
-            <iframe src="@previewUrl"
-                    style="width: 100%; height: 800px; border: 1px solid #ccc; border-radius: 8px;">
+            <iframe class="book-preview-frame" src="@previewUrl">
             </iframe>
         }
         else if (!string.IsNullOrWhiteSpace(Book.PreviewError))
@@ -178,7 +194,9 @@ else
     {
         <p class="text-muted">До цієї книги файл не прикріплено.</p>
     }
+    </div>
 }
+</div>
 
 @code {
     [Parameter]
@@ -196,13 +214,13 @@ else
     private bool CanManageRentals => UserRoleHelper.CanManageBooks(currentUser?.Role);
 
     private List<BookRental> ActiveRentals => Book?.Rentals?
-        .Where(RentalUiHelper.IsActiveOrPending)
+        .Where(RentalUiHelper.IsActive)
         .OrderBy(rental => rental.DueAt)
         .ToList() ?? [];
 
     private BookRental? MyActiveRental => currentUser is null
         ? null
-        : Book?.Rentals?.FirstOrDefault(rental => rental.UserId == currentUser.Id && RentalUiHelper.IsActiveOrPending(rental));
+        : Book?.Rentals?.FirstOrDefault(rental => rental.UserId == currentUser.Id && RentalUiHelper.IsActive(rental));
 
     protected override async Task OnInitializedAsync()
     {
@@ -306,7 +324,7 @@ else
             return $"доступна для видачі у бібліотеці, копій: {book.AvailableCopies} з {book.TotalCopies}";
         }
 
-        bool hasOccupiedCopies = book.Rentals?.Any(RentalUiHelper.IsActiveOrPending) == true;
+        bool hasOccupiedCopies = book.Rentals?.Any(RentalUiHelper.IsActive) == true;
         return hasOccupiedCopies ? "усі копії видані читачам" : "недоступна";
     }
 

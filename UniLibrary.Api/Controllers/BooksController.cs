@@ -123,9 +123,38 @@ public class BooksController : ControllerBase
 
         if (result.Value.Inline)
         {
-            Response.Headers["Content-Disposition"] = $"inline; filename=\"{result.Value.FileName}\"";
+            Response.Headers["Content-Disposition"] = BuildInlineContentDisposition(result.Value.FileName);
         }
 
         return File(result.Value.Stream, result.Value.ContentType, result.Value.Inline ? null : result.Value.FileName);
+    }
+
+    private static string BuildInlineContentDisposition(string fileName)
+    {
+        string safeFileName = SanitizeHeaderFileName(fileName);
+        string encodedFileName = Uri.EscapeDataString(Path.GetFileName(fileName));
+
+        return $"inline; filename=\"{safeFileName}\"; filename*=UTF-8''{encodedFileName}";
+    }
+
+    private static string SanitizeHeaderFileName(string fileName)
+    {
+        string fileNameOnly = Path.GetFileName(fileName);
+
+        if (string.IsNullOrWhiteSpace(fileNameOnly))
+        {
+            return "file";
+        }
+
+        var builder = new System.Text.StringBuilder(fileNameOnly.Length);
+
+        foreach (char ch in fileNameOnly)
+        {
+            bool isUnsafe = ch <= 31 || ch == 127 || ch > 126 || ch == '\\' || ch == '"' || ch == ';';
+            builder.Append(isUnsafe ? '_' : ch);
+        }
+
+        string sanitized = builder.ToString().Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "file" : sanitized;
     }
 }

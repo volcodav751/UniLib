@@ -190,7 +190,7 @@
     private int AvailableCount => Books.Count(book => book.IsDigital || book.AvailableCopies > 0);
     private int DigitalCount => Books.Count(book => book.IsDigital);
     private int PhysicalCount => Books.Count(book => !book.IsDigital);
-    private int RentedCount => Books.Count(book => book.Rentals?.Any(RentalUiHelper.IsActiveOrPending) == true || book.RentedByUserId.HasValue);
+    private int RentedCount => Books.Count(book => book.Rentals?.Any(RentalUiHelper.IsActive) == true);
     private int WithFileCount => Books.Count(book => !string.IsNullOrWhiteSpace(book.FileId));
 
     private bool ShowAvailabilitySection =>

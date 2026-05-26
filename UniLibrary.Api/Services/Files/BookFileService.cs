@@ -239,18 +239,7 @@ public class BookFileService : IBookFileService
 
     private static void ClearFileMetadata(Book book)
     {
-        book.FileId = null;
-        book.OriginalFileName = null;
-        book.StoredFileName = null;
-        book.ContentType = null;
-        book.FileSizeBytes = null;
-        book.FileUploadedAt = null;
-        book.PreviewFileId = null;
-        book.PreviewFileName = null;
-        book.PreviewContentType = null;
-        book.PreviewGeneratedAt = null;
-        book.PreviewStatus = null;
-        book.PreviewError = null;
+        book.ClearFileInfo();
         book.UpdatedAt = DateTime.UtcNow;
     }
 }

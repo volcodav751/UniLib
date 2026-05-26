@@ -15,7 +15,7 @@
             <p>Увійдіть у свій акаунт, щоб отримати JWT-токен доступу. Викладач може увійти тільки після підтвердження адміністратором.</p>
         </div>
 
-        <EditForm Model="loginModel" OnValidSubmit="LoginAsync">
+        <EditForm class="form-stack" Model="loginModel" OnValidSubmit="LoginAsync">
             <DataAnnotationsValidator />
 
             <div class="form-group">

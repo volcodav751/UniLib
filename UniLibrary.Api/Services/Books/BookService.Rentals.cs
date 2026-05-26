@@ -33,7 +33,7 @@ public partial class BookService
         NormalizedRentalRequest rentalRequest = rentalRequestResult.Value;
         AppUser? matchedUser = GetMatchedReader(rentalRequest.Email);
 
-        if (matchedUser is not null && BookRentalManager.HasActiveOrPendingRentalForUser(book, matchedUser.Id))
+        if (matchedUser is not null && BookRentalManager.HasActiveRentalForUser(book, matchedUser.Id))
         {
             return ServiceResult<Book>.BadRequest("Цей користувач уже має активну видачу цієї книги.");
         }

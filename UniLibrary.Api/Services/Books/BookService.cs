@@ -51,8 +51,7 @@ public partial class BookService : IBookService
     {
         return _books.GetAll()
             .Select(BookRentalManager.NormalizeRentalData)
-            .Where(book => book.Rentals.Any(rental =>
-                BookRentalManager.IsActiveRental(rental) || BookRentalManager.IsReturnPendingRental(rental)))
+            .Where(book => book.Rentals.Any(BookRentalManager.IsActiveRental))
             .OrderBy(book => book.Title)
             .ToList();
     }
@@ -101,7 +100,6 @@ public partial class BookService : IBookService
         }
 
         BookMapper.UpdateBook(book, request, occupiedCopies);
-        BookRentalManager.UpdateLegacyRentalFields(book);
         _books.Update(book);
 
         return ServiceResult<Book>.Ok(book);

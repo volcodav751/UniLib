@@ -1,49 +1,21 @@
 using LiteDB;
 
-namespace UniLibrary.Api.Models
+namespace UniLibrary.Api.Models;
+
+public partial class Book
 {
-    public class Book
-    {
-        [BsonId]
-        public int Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Author { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public string Language { get; set; } = string.Empty;
-        public string Publisher { get; set; } = string.Empty;
-        public int PublicationYear { get; set; }
-        public int PageCount { get; set; }
-        public string Isbn { get; set; } = string.Empty;
-        public List<string> Tags { get; set; } = new();
-        public bool IsAvailable { get; set; } = true;
-        public bool IsDigital { get; set; } = false;
-        public int TotalCopies { get; set; } = 1;
-        public int AvailableCopies { get; set; } = 1;
-        public List<BookRental> Rentals { get; set; } = new();
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [BsonId]
+    public int Id { get; set; }
 
-        public int? RentedByUserId { get; set; }
-        public string? RentedByFullName { get; set; }
-        public string? RentedByEmail { get; set; }
-        public DateTime? RentedAt { get; set; }
-        public DateTime? RentDueAt { get; set; }
+    public BookInfo Info { get; set; } = new();
+    public BookInventory Inventory { get; set; } = new();
+    public BookFileAttachment? File { get; set; }
+    public BookPreviewAttachment? Preview { get; set; }
 
-        public string? FileId { get; set; }
-        public string? OriginalFileName { get; set; }
-        public string? StoredFileName { get; set; }
-        public string? ContentType { get; set; }
-        public long? FileSizeBytes { get; set; }
-        public DateTime? FileUploadedAt { get; set; }
+    public List<string> Tags { get; set; } = [];
+    public List<BookRental> Rentals { get; set; } = [];
 
-        public string? PreviewFileId { get; set; }
-        public string? PreviewFileName { get; set; }
-        public string? PreviewContentType { get; set; }
-        public DateTime? PreviewGeneratedAt { get; set; }
-        public string? PreviewStatus { get; set; }
-        public string? PreviewError { get; set; }
-
-        public string? CoverImageUrl { get; set; }
-    }
+    public string? CoverImageUrl { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

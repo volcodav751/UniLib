@@ -11,7 +11,15 @@
 
 <PageTitle>Додати книгу</PageTitle>
 
-<h3>Додати книгу</h3>
+<div class="profile-page">
+    <div class="profile-card">
+        <div class="profile-page-header">
+            <div class="profile-page-avatar admin-avatar">＋</div>
+            <div>
+                <h1>Додати книгу</h1>
+                <p>Створення фізичної або цифрової книги для каталогу UniLibrary</p>
+            </div>
+        </div>
 
 @if (!string.IsNullOrWhiteSpace(StatusMessage))
 {
@@ -36,7 +44,7 @@ else if (!canManageBooks)
 }
 else
 {
-    <EditForm Model="BookModel" OnValidSubmit="HandleSubmit">
+    <EditForm class="form-stack" Model="BookModel" OnValidSubmit="HandleSubmit">
         <div class="mb-3">
             <label class="form-label">Назва</label>
             <InputText class="form-control" @bind-Value="BookModel.Title" />
@@ -159,6 +167,8 @@ else
         </button>
     </EditForm>
 }
+    </div>
+</div>
 
 @code {
     private CreateBookRequest BookModel = BookFormHelper.CreateEmptyModel();

@@ -10,9 +10,7 @@ public class BookRental
     public string? Note { get; set; }
     public DateTime RentedAt { get; set; }
     public DateTime DueAt { get; set; }
-    public DateTime? ReturnRequestedAt { get; set; }
     public DateTime? ReturnConfirmedAt { get; set; }
-    public int? ConfirmedByUserId { get; set; }
     public int? IssuedByUserId { get; set; }
     public string? IssuedByFullName { get; set; }
     public int? ReturnedByUserId { get; set; }
@@ -24,6 +22,5 @@ public class BookRental
 public static class RentalStatuses
 {
     public const string Active = "Active";
-    public const string ReturnPending = "ReturnPending";
     public const string Returned = "Returned";
 }

@@ -7,41 +7,26 @@ public static class BookRentalManager
 {
     public const int DefaultRentDays = 14;
 
-    private static readonly string[] LegacyPendingStatuses =
-    [
-        "PendingReturn",
-        "ReturnRequested",
-        "Pending"
-    ];
-
     public static Book NormalizeRentalData(Book book)
     {
         book.Rentals ??= [];
-        MigrateLegacyRental(book);
         NormalizeCopyCounters(book);
-        UpdateLegacyRentalFields(book);
         return book;
     }
 
     public static int CountOccupiedCopies(Book book)
     {
-        return book.Rentals.Count(IsActiveOrPendingRental);
+        return book.Rentals.Count(IsActiveRental);
     }
 
-    public static bool HasActiveOrPendingRentalForUser(Book book, int userId)
+    public static bool HasActiveRentalForUser(Book book, int userId)
     {
-        return book.Rentals.Any(rental => rental.UserId == userId && IsActiveOrPendingRental(rental));
+        return book.Rentals.Any(rental => rental.UserId == userId && IsActiveRental(rental));
     }
 
     public static bool IsActiveRental(BookRental rental)
     {
         return string.Equals(rental.Status, RentalStatuses.Active, StringComparison.OrdinalIgnoreCase);
-    }
-
-    public static bool IsReturnPendingRental(BookRental rental)
-    {
-        return string.Equals(rental.Status, RentalStatuses.ReturnPending, StringComparison.OrdinalIgnoreCase)
-            || LegacyPendingStatuses.Any(status => string.Equals(rental.Status, status, StringComparison.OrdinalIgnoreCase));
     }
 
     public static bool IsReturnedRental(BookRental rental)
@@ -83,9 +68,7 @@ public static class BookRentalManager
     public static void MarkCopyIssued(Book book)
     {
         book.AvailableCopies = Math.Max(0, book.AvailableCopies - 1);
-        book.IsAvailable = book.IsDigital || book.AvailableCopies > 0;
         book.UpdatedAt = DateTime.UtcNow;
-        UpdateLegacyRentalFields(book);
     }
 
     public static ServiceResult ValidateCanReturn(BookRental rental)
@@ -95,7 +78,7 @@ public static class BookRentalManager
             return ServiceResult.BadRequest("Цю книгу вже позначено як повернену.");
         }
 
-        if (!IsActiveOrPendingRental(rental))
+        if (!IsActiveRental(rental))
         {
             return ServiceResult.BadRequest("Цей запис не є активною видачею книги.");
         }
@@ -107,40 +90,12 @@ public static class BookRentalManager
     {
         rental.Status = RentalStatuses.Returned;
         rental.ReturnConfirmedAt = DateTime.UtcNow;
-        rental.ConfirmedByUserId = staff.Id;
         rental.ReturnedByUserId = staff.Id;
         rental.ReturnedByFullName = staff.FullName;
         rental.ReturnNote = returnNote;
 
         book.AvailableCopies = Math.Min(book.TotalCopies, book.AvailableCopies + 1);
-        book.IsAvailable = book.IsDigital || book.AvailableCopies > 0;
         book.UpdatedAt = DateTime.UtcNow;
-
-        UpdateLegacyRentalFields(book);
-    }
-
-    public static void UpdateLegacyRentalFields(Book book)
-    {
-        BookRental? firstActiveRental = book.Rentals
-            .Where(IsActiveOrPendingRental)
-            .OrderBy(rental => rental.RentedAt)
-            .FirstOrDefault();
-
-        if (firstActiveRental is null)
-        {
-            book.RentedByUserId = null;
-            book.RentedByFullName = null;
-            book.RentedByEmail = null;
-            book.RentedAt = null;
-            book.RentDueAt = null;
-            return;
-        }
-
-        book.RentedByUserId = firstActiveRental.UserId;
-        book.RentedByFullName = firstActiveRental.FullName;
-        book.RentedByEmail = firstActiveRental.Email;
-        book.RentedAt = firstActiveRental.RentedAt;
-        book.RentDueAt = firstActiveRental.DueAt;
     }
 
     public static bool MarkRentalsReturnedForUser(Book book, int userId)
@@ -148,7 +103,7 @@ public static class BookRentalManager
         book.Rentals ??= [];
         bool changed = false;
 
-        foreach (BookRental rental in book.Rentals.Where(rental => rental.UserId == userId && IsActiveOrPendingRental(rental)))
+        foreach (BookRental rental in book.Rentals.Where(rental => rental.UserId == userId && IsActiveRental(rental)))
         {
             rental.Status = RentalStatuses.Returned;
             rental.ReturnConfirmedAt = DateTime.UtcNow;
@@ -156,49 +111,12 @@ public static class BookRentalManager
             changed = true;
         }
 
-        if (book.RentedByUserId == userId)
-        {
-            book.RentedByUserId = null;
-            book.RentedByFullName = null;
-            book.RentedByEmail = null;
-            book.RentedAt = null;
-            book.RentDueAt = null;
-            book.AvailableCopies = Math.Min(book.TotalCopies, Math.Max(book.AvailableCopies, 1));
-            changed = true;
-        }
-
         if (changed)
         {
-            book.IsAvailable = book.IsDigital || book.AvailableCopies > 0;
             book.UpdatedAt = DateTime.UtcNow;
-            UpdateLegacyRentalFields(book);
         }
 
         return changed;
-    }
-
-    private static bool IsActiveOrPendingRental(BookRental rental)
-    {
-        return IsActiveRental(rental) || IsReturnPendingRental(rental);
-    }
-
-    private static void MigrateLegacyRental(Book book)
-    {
-        if (book.Rentals.Count > 0 || !book.RentedByUserId.HasValue)
-        {
-            return;
-        }
-
-        book.Rentals.Add(new BookRental
-        {
-            RentalId = 1,
-            UserId = book.RentedByUserId.Value,
-            FullName = book.RentedByFullName ?? string.Empty,
-            Email = book.RentedByEmail ?? string.Empty,
-            RentedAt = book.RentedAt ?? DateTime.UtcNow,
-            DueAt = book.RentDueAt ?? DateTime.UtcNow.AddDays(DefaultRentDays),
-            Status = RentalStatuses.Active
-        });
     }
 
     private static void NormalizeCopyCounters(Book book)
@@ -207,7 +125,6 @@ public static class BookRentalManager
         {
             book.TotalCopies = 0;
             book.AvailableCopies = 0;
-            book.IsAvailable = true;
             return;
         }
 
@@ -218,13 +135,13 @@ public static class BookRentalManager
 
         int occupiedCopies = CountOccupiedCopies(book);
         int maxAvailable = Math.Max(0, book.TotalCopies - occupiedCopies);
-        book.AvailableCopies = Math.Clamp(book.AvailableCopies, 0, maxAvailable);
 
-        if (book.AvailableCopies == 0 && occupiedCopies == 0 && book.IsAvailable)
+        if (book.AvailableCopies == 0 && occupiedCopies == 0)
         {
             book.AvailableCopies = book.TotalCopies;
+            return;
         }
 
-        book.IsAvailable = book.AvailableCopies > 0;
+        book.AvailableCopies = Math.Clamp(book.AvailableCopies, 0, maxAvailable);
     }
 }

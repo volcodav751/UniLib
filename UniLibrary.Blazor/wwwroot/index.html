@@ -11,6 +11,7 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="UniLibrary.Blazor.styles.css" rel="stylesheet" />
     <link href="css/library.css" rel="stylesheet" />
+    <link href="css/theme.css" rel="stylesheet" />
 </head>
 
 <body>
@@ -27,6 +28,19 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
+    <script>
+        window.uniLibraryTheme = {
+            get: function () {
+                return localStorage.getItem('unilibrary_theme') || 'light';
+            },
+            set: function (theme) {
+                const safeTheme = theme === 'dark' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', safeTheme);
+                localStorage.setItem('unilibrary_theme', safeTheme);
+            }
+        };
+        window.uniLibraryTheme.set(window.uniLibraryTheme.get());
+    </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

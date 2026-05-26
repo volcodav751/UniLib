@@ -7,6 +7,7 @@
 
 @inject NavigationManager Navigation
 @inject AuthApiService AuthApiService
+@inject ThemeService ThemeService
 
 <header class="app-header">
     <div class="header-inner">
@@ -32,6 +33,10 @@
         </div>
 
         <div class="header-actions">
+            <button class="theme-toggle-button" @onclick="ToggleThemeAsync" title="Перемкнути тему">
+                @(currentTheme == "dark" ? "☀️" : "🌙")
+            </button>
+
             @if (canManageBooks)
             {
                 <button class="add-book-button" @onclick="GoRentals">
@@ -82,10 +87,13 @@
     private string searchText = string.Empty;
     private UserResponse? currentUser;
     private bool canManageBooks;
+    private string currentTheme = "light";
 
     protected override async Task OnInitializedAsync()
     {
         AuthApiService.AuthStateChanged += OnAuthStateChanged;
+        await ThemeService.InitializeAsync();
+        currentTheme = ThemeService.CurrentTheme;
         await LoadUserAsync();
     }
 
@@ -141,6 +149,11 @@
     }
 
     private static string GetRoleName(string role) => UserRoleHelper.GetDisplayName(role);
+
+    private async Task ToggleThemeAsync()
+    {
+        currentTheme = await ThemeService.ToggleAsync();
+    }
 
     private async Task LogoutAsync()
     {
