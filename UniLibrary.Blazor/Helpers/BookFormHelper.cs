@@ -12,7 +12,6 @@ public static class BookFormHelper
     {
         return new CreateBookRequest
         {
-            IsAvailable = true,
             IsDigital = false,
             TotalCopies = 1
         };
@@ -64,7 +63,6 @@ public static class BookFormHelper
 
         if (book.IsDigital)
         {
-            book.IsAvailable = true;
             book.TotalCopies = 0;
         }
         else if (book.TotalCopies < 1)

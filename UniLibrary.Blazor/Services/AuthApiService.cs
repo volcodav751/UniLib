@@ -56,7 +56,7 @@ namespace UniLibrary.Blazor.Services
                         string message = !string.IsNullOrWhiteSpace(auth.Message)
                             ? auth.Message
                             : auth.User.Role == UserRoleHelper.Admin
-                                ? "Реєстрація успішна. Це перший акаунт, тому він автоматично став адміністратором."
+                                ? "Реєстрація успішна. Акаунт активовано."
                                 : "Реєстрація успішна";
 
                         return (true, message, auth.User, false);
@@ -67,9 +67,9 @@ namespace UniLibrary.Blazor.Services
 
                 return (false, CleanError(responseText), null, false);
             }
-            catch (Exception ex)
+            catch
             {
-                return (false, $"Помилка підключення до сервера: {ex.Message}", null, false);
+                return (false, "Не вдалося підключитися до сервера. Перевірте підключення до сервера і спробуйте ще раз.", null, false);
             }
         }
 
@@ -95,9 +95,9 @@ namespace UniLibrary.Blazor.Services
 
                 return (false, CleanError(responseText), null);
             }
-            catch (Exception ex)
+            catch
             {
-                return (false, $"Помилка підключення до сервера: {ex.Message}", null);
+                return (false, "Не вдалося підключитися до сервера. Перевірте підключення до сервера і спробуйте ще раз.", null);
             }
         }
 
@@ -163,9 +163,9 @@ namespace UniLibrary.Blazor.Services
                 string error = await response.Content.ReadAsStringAsync();
                 return (false, string.IsNullOrWhiteSpace(error) ? "Не вдалося видалити користувача." : CleanError(error));
             }
-            catch (Exception ex)
+            catch
             {
-                return (false, $"Помилка: {ex.Message}");
+                return (false, "Не вдалося виконати дію. Спробуйте ще раз.");
             }
         }
         public async Task<(bool Success, string Message)> ApproveTeacherAsync(int id)
@@ -187,9 +187,9 @@ namespace UniLibrary.Blazor.Services
                 string error = await response.Content.ReadAsStringAsync();
                 return (false, string.IsNullOrWhiteSpace(error) ? "Не вдалося підтвердити акаунт викладача." : CleanError(error));
             }
-            catch (Exception ex)
+            catch
             {
-                return (false, $"Помилка: {ex.Message}");
+                return (false, "Не вдалося виконати дію. Спробуйте ще раз.");
             }
         }
 
@@ -263,10 +263,22 @@ namespace UniLibrary.Blazor.Services
         {
             if (string.IsNullOrWhiteSpace(error))
             {
-                return "Сталася помилка.";
+                return "Сталася помилка. Спробуйте ще раз.";
             }
 
-            return error.Trim('"', ' ', '\n', '\r', '\t');
+            string cleaned = error.Trim('\"', ' ', '\n', '\r', '\t');
+
+            if (cleaned.Contains("Exception", StringComparison.OrdinalIgnoreCase)
+                || cleaned.Contains("StackTrace", StringComparison.OrdinalIgnoreCase)
+                || cleaned.Contains("Microsoft.", StringComparison.OrdinalIgnoreCase)
+                || cleaned.Contains("System.", StringComparison.OrdinalIgnoreCase)
+                || cleaned.StartsWith("{", StringComparison.OrdinalIgnoreCase)
+                || cleaned.StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Сталася помилка на сервері. Спробуйте ще раз або зверніться до адміністратора.";
+            }
+
+            return cleaned;
         }
     }
 }

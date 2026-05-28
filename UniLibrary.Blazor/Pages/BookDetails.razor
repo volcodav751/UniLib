@@ -159,7 +159,7 @@ else
             <div class="d-flex gap-3 flex-wrap align-items-center justify-content-between">
                 <div>
                     <h4>Файл книги</h4>
-                    <p class="text-muted mb-0">Оригінальний файл: @Book.OriginalFileName</p>
+                    <p class="text-muted mb-0">Файл прикріплено. Його можна скачати або переглянути онлайн, якщо доступний передперегляд.</p>
                 </div>
 
                 <a class="btn btn-primary"
@@ -177,16 +177,10 @@ else
             <iframe class="book-preview-frame" src="@previewUrl">
             </iframe>
         }
-        else if (!string.IsNullOrWhiteSpace(Book.PreviewError))
-        {
-            <div class="alert alert-warning">
-                PDF-передперегляд не створено: @Book.PreviewError
-            </div>
-        }
         else
         {
             <p class="text-muted">
-                PDF-передперегляд для цього файлу ще не готовий. Можна скачати оригінальний файл.
+                Передперегляд для цього файлу недоступний. Можна скачати файл і відкрити його на своєму пристрої.
             </p>
         }
     }

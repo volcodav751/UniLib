@@ -73,19 +73,19 @@ public class BookApiService
 
             if (!response.IsSuccessStatusCode)
             {
-                return (false, $"Помилка завантаження: {response.StatusCode}. {CleanError(responseText)}");
+                return (false, $"Не вдалося завантажити файл. {CleanError(responseText)}");
             }
 
             if (responseText.Contains("Failed", StringComparison.OrdinalIgnoreCase))
             {
-                return (true, "Файл завантажено, але PDF-передперегляд не створено. Перевір LibreOffice на API-комп'ютері.");
+                return (true, "Файл завантажено. Передперегляд для цього формату може бути недоступний.");
             }
 
             return (true, "Файл завантажено, PDF-передперегляд готовий.");
         }
-        catch (Exception ex)
+        catch
         {
-            return (false, $"Помилка: {ex.Message}");
+            return (false, "Не вдалося виконати дію. Перевірте підключення до сервера і спробуйте ще раз.");
         }
     }
 
@@ -125,9 +125,9 @@ public class BookApiService
             string error = await response.Content.ReadAsStringAsync();
             return (false, CleanError(error));
         }
-        catch (Exception ex)
+        catch
         {
-            return (false, $"Помилка: {ex.Message}");
+            return (false, "Не вдалося виконати дію. Перевірте підключення до сервера і спробуйте ще раз.");
         }
     }
 
@@ -197,9 +197,9 @@ public class BookApiService
             T? value = JsonSerializer.Deserialize<T>(responseText, JsonOptions);
             return ApiResult<T>.Ok(value);
         }
-        catch (Exception ex)
+        catch
         {
-            return ApiResult<T>.Fail($"Помилка: {ex.Message}");
+            return ApiResult<T>.Fail("Не вдалося виконати запит до сервера. Спробуйте ще раз.");
         }
     }
 
@@ -218,14 +218,26 @@ public class BookApiService
     }
 
     private static string CleanError(string error)
-    {
-        if (string.IsNullOrWhiteSpace(error))
         {
-            return "Сталася помилка.";
-        }
+            if (string.IsNullOrWhiteSpace(error))
+            {
+                return "Сталася помилка. Спробуйте ще раз.";
+            }
 
-        return error.Trim('"', ' ', '\n', '\r', '\t');
-    }
+            string cleaned = error.Trim('\"', ' ', '\n', '\r', '\t');
+
+            if (cleaned.Contains("Exception", StringComparison.OrdinalIgnoreCase)
+                || cleaned.Contains("StackTrace", StringComparison.OrdinalIgnoreCase)
+                || cleaned.Contains("Microsoft.", StringComparison.OrdinalIgnoreCase)
+                || cleaned.Contains("System.", StringComparison.OrdinalIgnoreCase)
+                || cleaned.StartsWith("{", StringComparison.OrdinalIgnoreCase)
+                || cleaned.StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Сталася помилка на сервері. Спробуйте ще раз або зверніться до адміністратора.";
+            }
+
+            return cleaned;
+        }
 
     private readonly record struct ApiResult<T>(bool Success, string Message, T? Value)
     {

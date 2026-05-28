@@ -47,17 +47,17 @@ else
     <EditForm class="form-stack" Model="BookModel" OnValidSubmit="HandleSubmit">
         <div class="mb-3">
             <label class="form-label">Назва</label>
-            <InputText class="form-control" @bind-Value="BookModel.Title" />
+            <InputText class="form-control" @bind-Value="BookModel.Title" placeholder="Наприклад: Основи програмування мовою C#" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">Автор</label>
-            <InputText class="form-control" @bind-Value="BookModel.Author" />
+            <InputText class="form-control" @bind-Value="BookModel.Author" placeholder="Наприклад: Петренко Іван Іванович" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">Опис</label>
-            <InputTextArea class="form-control" @bind-Value="BookModel.Description" />
+            <InputTextArea class="form-control" @bind-Value="BookModel.Description" placeholder="Коротко опишіть зміст книги, її призначення та для яких дисциплін вона може бути корисною." />
         </div>
 
         <div class="mb-3">
@@ -100,16 +100,12 @@ else
         {
             <div class="mb-3">
                 <label class="form-label">Кількість копій</label>
-                <InputNumber class="form-control" @bind-Value="BookModel.TotalCopies" />
+                <InputNumber class="form-control" @bind-Value="BookModel.TotalCopies" placeholder="Наприклад: 3" />
                 <div class="form-text">
                     Це кількість фізичних примірників у бібліотеці. Під час видачі доступних копій стає менше.
                 </div>
             </div>
 
-            <div class="form-check mb-3">
-                <InputCheckbox class="form-check-input" @bind-Value="BookModel.IsAvailable" />
-                <label class="form-check-label">Доступна для видачі одразу після створення</label>
-            </div>
         }
         else
         {
@@ -120,44 +116,44 @@ else
 
         <div class="mb-3">
             <label class="form-label">Видавництво</label>
-            <InputText class="form-control" @bind-Value="BookModel.Publisher" />
+            <InputText class="form-control" @bind-Value="BookModel.Publisher" placeholder="Наприклад: ДУІКТ, Наукова думка, навчальне видавництво" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">Рік публікації</label>
-            <InputNumber class="form-control" @bind-Value="BookModel.PublicationYear" />
+            <InputNumber class="form-control" @bind-Value="BookModel.PublicationYear" placeholder="Наприклад: 2024" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">Кількість сторінок</label>
-            <InputNumber class="form-control" @bind-Value="BookModel.PageCount" />
+            <InputNumber class="form-control" @bind-Value="BookModel.PageCount" placeholder="Наприклад: 320" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">ISBN</label>
-            <InputText class="form-control" @bind-Value="BookModel.Isbn" />
+            <InputText class="form-control" @bind-Value="BookModel.Isbn" placeholder="Наприклад: 978-966-0000-00-0" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">Теги (через кому)</label>
-            <InputText class="form-control" @bind-Value="TagsText" />
+            <InputText class="form-control" @bind-Value="TagsText" placeholder="Наприклад: програмування, C#, веброзробка" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">URL обкладинки</label>
-            <InputText class="form-control" @bind-Value="BookModel.CoverImageUrl" />
+            <InputText class="form-control" @bind-Value="BookModel.CoverImageUrl" placeholder="Необов’язково: посилання на зображення обкладинки" />
         </div>
 
         <div class="mb-3">
             <label class="form-label">Файл книги</label>
             <InputFile OnChange="HandleFileSelected" />
             <div class="form-text">
-                Дозволено: PDF, DOC, DOCX, TXT, RTF, ODT. Скачування буде в оригінальному форматі, а передперегляд — у PDF.
+                Можна додати PDF, DOC, DOCX, TXT, RTF або ODT. Користувач зможе скачати файл, а для PDF буде доступний передперегляд.
             </div>
             @if (SelectedFile is not null)
             {
                 <div class="form-text">
-                    Обрано файл: @SelectedFile.Name (@(SelectedFile.Size / 1024) KB)
+                    Обрано файл: @SelectedFile.Name
                 </div>
             }
         </div>
@@ -246,10 +242,10 @@ else
             TagsText = string.Empty;
             SelectedFile = null;
         }
-        catch (Exception ex)
+        catch
         {
             IsError = true;
-            StatusMessage = $"Помилка: {ex.Message}";
+            StatusMessage = "Не вдалося зберегти книгу. Перевірте підключення до сервера і спробуйте ще раз.";
         }
         finally
         {

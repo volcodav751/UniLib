@@ -11,7 +11,7 @@ public static class BookMapper
         int totalCopies = isDigital ? 0 : request.TotalCopies;
         int availableCopies = isDigital
             ? 0
-            : request.IsAvailable ? totalCopies : 0;
+            : totalCopies;
 
         return new Book
         {
@@ -53,7 +53,7 @@ public static class BookMapper
         book.TotalCopies = request.IsDigital ? 0 : request.TotalCopies;
         book.AvailableCopies = request.IsDigital
             ? 0
-            : request.IsAvailable ? Math.Max(0, book.TotalCopies - occupiedCopies) : 0;
+            : Math.Max(0, book.TotalCopies - occupiedCopies);
         book.IsAvailable = request.IsDigital || book.AvailableCopies > 0;
         book.CoverImageUrl = request.CoverImageUrl?.Trim();
         book.UpdatedAt = DateTime.UtcNow;

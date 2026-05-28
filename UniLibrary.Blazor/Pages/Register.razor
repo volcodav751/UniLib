@@ -11,7 +11,7 @@
 
         <div class="register-header">
             <h1>Створення акаунта</h1>
-            <p>Студентський акаунт активується одразу. Акаунт викладача стане доступним тільки після підтвердження адміністратором. Якщо в системі ще немає Admin, перший акаунт автоматично стане адміністратором.</p>
+            <p>Студентський акаунт активується одразу. Акаунт викладача стане доступним тільки після підтвердження адміністратором.</p>
         </div>
 
         <EditForm class="form-stack" Model="registerModel" OnValidSubmit="RegisterAsync">
@@ -57,7 +57,7 @@
                     <option value="Student">Учень / студент</option>
                     <option value="Teacher">Викладач</option>
                 </InputSelect>
-                <small class="text-muted">Викладач після реєстрації очікує підтвердження адміністратора. Адмін не створюється через звичайну форму, окрім першого акаунта в системі.</small>
+                <small class="text-muted">Викладач після реєстрації очікує підтвердження адміністратора.</small>
             </div>
 
             <button class="register-button" type="submit" disabled="@isLoading">

@@ -22,7 +22,6 @@ public class CreateBookRequest
 
     public List<string> Tags { get; set; } = new();
 
-    public bool IsAvailable { get; set; } = true;
 
     public bool IsDigital { get; set; } = false;
 

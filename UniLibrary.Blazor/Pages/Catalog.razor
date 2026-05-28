@@ -56,9 +56,9 @@
 
             books = await BookApiService.GetBooksAsync();
         }
-        catch (Exception ex)
+        catch
         {
-            errorMessage = $"Помилка завантаження: {ex.Message}";
+            errorMessage = "Не вдалося завантажити каталог. Перевірте підключення до сервера і спробуйте оновити сторінку.";
         }
         finally
         {

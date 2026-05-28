@@ -61,12 +61,16 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">ПІБ читача</label>
-                        <InputText class="form-control" @bind-Value="RentalModel.FullName" />
+                        <InputText class="form-control"
+                                   @bind-Value="RentalModel.FullName"
+                                   placeholder="Наприклад: Ролдугін Максим Віталійович" />
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Email читача</label>
-                        <InputText class="form-control" @bind-Value="RentalModel.Email" />
+                        <InputText class="form-control"
+                                   @bind-Value="RentalModel.Email"
+                                   placeholder="Наприклад: student@gmail.com" />
                         <div class="form-text">Якщо email збігається з акаунтом студента, книга з'явиться у нього в профілі.</div>
                     </div>
                 </div>
@@ -74,7 +78,9 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Група / клас / примітка до читача</label>
-                        <InputText class="form-control" @bind-Value="RentalModel.ReaderGroup" />
+                        <InputText class="form-control"
+                                   @bind-Value="RentalModel.ReaderGroup"
+                                   placeholder="Наприклад: ПД-21" />
                     </div>
 
                     <div class="col-md-6 mb-3">
@@ -85,7 +91,9 @@
 
                 <div class="mb-3">
                     <label class="form-label">Службова примітка</label>
-                    <InputTextArea class="form-control" @bind-Value="RentalModel.Note" />
+                    <InputTextArea class="form-control"
+                                   @bind-Value="RentalModel.Note"
+                                   placeholder="Необов’язково: стан книги, номер читацького квитка або інша службова примітка." />
                 </div>
 
                 <button class="btn btn-success" type="submit" disabled="@isSavingRental">
