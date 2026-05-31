@@ -1,6 +1,6 @@
 using UniLibrary.Api.Models;
 
-namespace UniLibrary.Api.Repos;
+namespace UniLibrary.Api.Interfaces;
 
 public interface IBookRepository
 {

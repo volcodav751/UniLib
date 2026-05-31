@@ -1,5 +1,6 @@
 using UniLibrary.Api.Data;
 using UniLibrary.Api.Models;
+using UniLibrary.Api.Interfaces;
 
 namespace UniLibrary.Api.Repos;
 

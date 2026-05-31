@@ -8,6 +8,7 @@ using UniLibrary.Api.Services.Auth;
 using UniLibrary.Api.Services.Books;
 using UniLibrary.Api.Services.Common;
 using UniLibrary.Api.Services.Files;
+using UniLibrary.Api.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 

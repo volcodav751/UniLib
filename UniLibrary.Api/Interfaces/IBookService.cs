@@ -2,7 +2,7 @@ using UniLibrary.Api.Models;
 using UniLibrary.Api.Models.Requests;
 using UniLibrary.Api.Services.Results;
 
-namespace UniLibrary.Api.Services.Books;
+namespace UniLibrary.Api.Interfaces;
 
 public interface IBookService
 {

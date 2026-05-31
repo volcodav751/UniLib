@@ -1,4 +1,4 @@
-namespace UniLibrary.Api.Services.Common;
+namespace UniLibrary.Api.Interfaces;
 
 public interface ICurrentUserService
 {

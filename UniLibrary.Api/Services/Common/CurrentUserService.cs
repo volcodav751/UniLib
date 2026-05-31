@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
+using UniLibrary.Api.Interfaces;
 
 namespace UniLibrary.Api.Services.Common;
 

@@ -4,6 +4,7 @@ using UniLibrary.Api.Repos;
 using UniLibrary.Api.Services.Common;
 using UniLibrary.Api.Services.Files;
 using UniLibrary.Api.Services.Results;
+using UniLibrary.Api.Interfaces;
 
 namespace UniLibrary.Api.Services.Books;
 

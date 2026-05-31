@@ -4,6 +4,7 @@ using UniLibrary.Api.Extensions;
 using UniLibrary.Api.Models;
 using UniLibrary.Api.Models.Requests;
 using UniLibrary.Api.Services.Auth;
+using UniLibrary.Api.Interfaces;
 
 namespace UniLibrary.Api.Controllers
 {

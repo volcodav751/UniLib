@@ -3,7 +3,7 @@ using UniLibrary.Api.Models.Requests;
 using UniLibrary.Api.Models.Responses;
 using UniLibrary.Api.Services.Results;
 
-namespace UniLibrary.Api.Services.Files;
+namespace UniLibrary.Api.Interfaces;
 
 public interface IBookFileService
 {

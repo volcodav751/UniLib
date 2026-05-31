@@ -7,6 +7,7 @@ using UniLibrary.Api.Models.Responses;
 using UniLibrary.Api.Services.Books;
 using UniLibrary.Api.Services.Files;
 using UniLibrary.Api.Services.Results;
+using UniLibrary.Api.Interfaces;
 
 namespace UniLibrary.Api.Controllers;
 
